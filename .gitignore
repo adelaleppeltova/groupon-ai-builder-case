@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Citlivé údaje
+.env
+.env.local
+*.pem
+*.key
+
+# AI session exports
+ai-exports/
+
+# macOS
+.DS_Store
+
+# Node.js (pokud použiješ frontend)
+node_modules/
+dist/
