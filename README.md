@@ -75,4 +75,4 @@ For a recommended call, the forecast multiplies added capacity by the assumed in
 
 These are illustrative scenarios, not estimates of treatment effect or confidence bounds. Finance does not drive the action, and the live recommendation would still need rep validation before use.
 
-Routing, holdout and evaluation, observational study reproduction and the submission pack are later phases.
+The proposed January routing patch is ready for [Hana’s review](docs/hana-routing-review.md). Holdout and evaluation, observational study reproduction and the submission pack are later phases.

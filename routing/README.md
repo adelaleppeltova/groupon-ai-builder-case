@@ -20,7 +20,7 @@ python3 -m unittest discover -s tests     # or: python3 -m pytest
 
 | File | What's in it |
 |---|---|
-| `config/routing.json` | Minutes per day, minutes per task, pause threshold, `suppressed_deal_ids`, `suppress_soldout_tasks`, `suppression_file` |
+| `config/routing.json` | Minutes per day, minutes per task, pause threshold, `suppressed_deal_ids`, `suppress_soldout_tasks`, `suppression_file`, `suppression_max_age_days` |
 | `priors.json` | Restock priors used for ranking; also the priors for other task types |
 | `config/env_overrides.json` | Environment values. Loaded last, on top of the above, and takes precedence (`priors` over `priors.json`, `routing` over `config/routing.json`) |
 | `input/suppressions.csv` | Sold-out suppression list: `deal_id`, `merchant_id`, `reason`, `source`, `added_on`. Ships empty |
@@ -32,15 +32,21 @@ Notes for anyone changing things:
 - Value per task comes from the input file; routing does not compute it.
 - The input file's column order matters to the importer, so add columns at the end.
 
-## Sold-out suppression (not wired yet)
+## Proposed January sold-out suppression
 
-Agreed in October so reps stop getting tasks that don't need them. Only the plumbing exists:
+The flag ships as `false`. In that state the planner uses its original filters, ranks and time budget. When the effective flag is `true`, the planner checks the CSV before ranking the remaining eligible restock tasks. The lookup requires both the merchant and deal ID. It protects promised callbacks from this new mechanism and applies the existing contact restrictions, pause threshold and legacy `suppressed_deal_ids` as before.
 
-- `suppress_soldout_tasks` in `config/routing.json`. Default `false`. This is the one switch.
-- `input/suppressions.csv`, read by `routing/suppressions.py` (`load_suppressions()`). A row needs a `deal_id`, or a `merchant_id` for the whole merchant.
-- `plan.py` doesn't use either yet. With the switch off, output must stay exactly as it is today.
+The proposed CSV contract requires one row per merchant and deal. Use a reason code of `capacity_confirmed`, `restock_declined` or `already_restocked`. Use `rep_confirmed:R01` with the actual owning rep ID, and set `added_on` to the date of confirmation in `YYYY-MM-DD` format. Sales and Ops need to agree who verifies ownership, stores the supporting confirmation, updates the list and removes entries when circumstances change. The planner checks formatting and dates. It has no rep ownership field or access to those confirmations.
 
-Whoever picks it up: decide what goes in the file and why, wire it into `plan.py` behind the switch, add tests, and remember `env_overrides.json` wins over `routing.json`. Rolling back means switching it off, nothing else.
+The proposed `suppression_max_age_days` default is seven UK calendar days, inclusive. The evaluation date defaults to the current date in Europe/London. To replay with a specific evaluation date, use the CLI option below. An override under `routing` in `config/env_overrides.json` wins over base config for the switch, file path and freshness limit. Invalid, stale or future entries and merchant-wide rows are ignored. Duplicate eligible entries for the same merchant and deal are ambiguous and neither is used. A missing or unreadable file yields no pilot suppressions. The shipped CSV is empty.
+
+```
+python3 -m routing.plan input/todays_soldouts.csv --as-of 2026-11-09
+```
+
+Each enabled run emits JSON lines on stderr with a run ID and evaluation date. Decisions identify the task, merchant and deal, plus the reason code, rep source, confirmation date and line of the matched entry. A summary gives the counts suppressed, callbacks protected, callbacks removed and diagnostics. Rejected rows are logged by status and line without their raw contents. The runner needs to capture stderr and preserve pilot records separately because routing logs expire after 14 days.
+
+Rollback is to set the **effective** `suppress_soldout_tasks` value to `false`, including any environment override, before the next run. A list already delivered needs separate reconciliation. See [Hana’s review brief](../docs/hana-routing-review.md) for the proposed stop rules and responsibilities.
 
 ## Ops
 
