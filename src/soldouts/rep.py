@@ -1,6 +1,8 @@
 """Evidence and financial context for the rep view."""
+from collections import Counter
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from .data import TEXT_COLUMNS, UK, active_schedules, pack_reader, timestamp
 from .evidence import detect, recommend
@@ -83,10 +85,12 @@ def live_context(api, event, max_age_days):
     since = (event.cutoff - timedelta(days=max_age_days)).astimezone(UK).date().isoformat()
     tables, missing = {}, []
     for table, path in {**SOURCE_PATHS, "schedules": "/automation/schedules",
-                        "history": "/merchant-months"}.items():
+                        "history": "/merchant-months", "past": "/soldouts"}.items():
         filters = {"merchant_id": event.merchant_id}
         if table in SOURCE_PATHS:
             filters["since"] = since
+        elif table == "past":
+            filters["to"] = (event.cutoff.astimezone(UK).date() - timedelta(days=1)).isoformat()
         try:
             rows = api.pages(path, **filters)["data"]
         except SandboxError:
@@ -96,8 +100,61 @@ def live_context(api, event, max_age_days):
     return tables, missing
 
 
+def previous_cap_increase(event, past, schedules, max_age_days):
+    """Return the latest unambiguous prior increase with no observed schedule overlap."""
+    day = event.cutoff.astimezone(UK).date()
+    prior = []
+    try:
+        for row in past:
+            if (row.get("merchant_id"), row.get("deal_id")) != (event.merchant_id, event.deal_id):
+                continue
+            sold = date.fromisoformat(row.get("sold_out_date"))
+            if sold < day:
+                prior.append((sold, row))
+        if not prior:
+            return None
+        latest = max(sold for sold, _ in prior)
+        rows = [row for sold, row in prior if sold == latest]
+        if len(rows) != 1 or not string(rows[0].get("sold_out_id")):
+            return None
+        row = rows[0]
+        restocked = date.fromisoformat(row.get("restocked_date"))
+        if not (max(latest, day - timedelta(days=max_age_days)) <= restocked < day):
+            return None
+        cap, raised = (Decimal(str(row.get(key))) for key in ("cap", "new_cap"))
+        if not (cap.is_finite() and raised.is_finite() and 0 <= cap < raised):
+            return None
+        for schedule in schedules:
+            if (schedule.get("merchant_id"), schedule.get("deal_id")) != (event.merchant_id, event.deal_id):
+                continue
+            start = date.fromisoformat(schedule.get("start_date"))
+            if start > day:
+                continue
+            end_value = schedule["end_date"]
+            end = date.max if end_value in ("", None) else date.fromisoformat(end_value)
+            if end < start or (start <= restocked and end >= latest) or start <= day <= end:
+                return None
+    except (KeyError, TypeError, ValueError, InvalidOperation, OverflowError):
+        return None
+    return {"event_id": row["sold_out_id"], "date": restocked.isoformat(), "cap": cap, "new_cap": raised}
+
+
+def evidence_empty_message(counts, scope, *, unavailable=False):
+    if unavailable:
+        return "Some source feeds could not be loaded. Evidence may be incomplete."
+    if not counts["returned"]:
+        return "No source records were returned for this window."
+    if not counts[scope]:
+        return ("Source records were returned, but none were eligible for this deal."
+                if scope == "deal" else
+                "Source records were returned, but none were eligible as merchant context.")
+    return "Eligible text was found, but no rule recognised a signal."
+
+
+
 def assess_event(event, tables, *, max_age_days=90, live=False, incomplete=False):
     cutoff = event.cutoff
+    counts = Counter(returned=sum(len(tables.get(source, ())) for source in TEXT_COLUMNS))
     if cutoff is None:
         action, reason = (
             ("no_call", "The sandbox lists this merchant as do not contact.")
@@ -105,14 +162,15 @@ def assess_event(event, tables, *, max_age_days=90, live=False, incomplete=False
             ("manual_review", "The event time is missing or invalid. Verify it before assessing evidence.")
         )
         return {"action": action, "reason": reason, "deal_evidence": [], "merchant_context": [],
-                "schedules": [], "finance": None}
+                "schedules": [], "finance": None, "previous_increase": None, "evidence_counts": counts}
     signals = []
     for source, columns in TEXT_COLUMNS.items():
         id_field, date_field, text_field = columns
         records = [{k: string(row.get(k)) for k in
                     ("merchant_id", "deal_id", "rep_id", id_field, date_field, text_field)}
                    for row in tables.get(source, ()) if row.get("merchant_id") == event.merchant_id]
-        matches, _ = detect(records, source, cutoff, deal_id=event.deal_id, max_age_days=max_age_days)
+        matches, _ = detect(records, source, cutoff, deal_id=event.deal_id,
+                            max_age_days=max_age_days, eligible_counts=counts)
         signals.extend(matches)
     deal = [signal for signal in signals if signal["deal_id"]]
     context = [signal for signal in signals if not signal["deal_id"]]
@@ -132,6 +190,17 @@ def assess_event(event, tables, *, max_age_days=90, live=False, incomplete=False
     elif action == "manual_review" and any(not s["stale"] for s in context):
         reason += " Review the merchant context for questions to verify on this deal."
 
+    previous = None
+    if (action == "manual_review" and event.do_not_contact is False and not incomplete
+            and all(source in tables for source in (*TEXT_COLUMNS, "schedules", "past"))
+            and not schedules and not any(not signal["stale"] for signal in deal)):
+        previous = previous_cap_increase(event, tables["past"], tables["schedules"], max_age_days)
+        if previous:
+            action = "call"
+            reason = (f"This deal's cap rose from {previous['cap']:f} to {previous['new_cap']:f} "
+                      f"on {previous['date']} ({previous['event_id']}). Ask whether the merchant "
+                      "can and wants to add capacity now.")
+
     baseline = financial = None
     if action == "call":
         history = (
@@ -141,4 +210,5 @@ def assess_event(event, tables, *, max_age_days=90, live=False, incomplete=False
         baseline = merchant_history(history, cutoff)
         financial = forecast(baseline["net_gp_per_voucher_gbp"])
     return {"action": action, "reason": reason, "deal_evidence": deal, "merchant_context": context,
-            "schedules": schedules, "finance": financial, "baseline": baseline}
+            "schedules": schedules, "finance": financial, "baseline": baseline,
+            "previous_increase": previous, "evidence_counts": counts}

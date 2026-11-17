@@ -103,9 +103,12 @@ class RepTest(unittest.TestCase):
     def test_failed_context_feed_is_reported_and_can_prompt_review(self):
         payload = {"data": [note("N1", "Please raise the cap.", deal_id="D1"),
                             {**note("N2", "At capacity."), "merchant_id": "M2"}]}
-        http = HttpMock(payload, URLError("offline"), *[{"data": []}] * 4)
+        http = HttpMock(payload, URLError("offline"), *[{"data": []}] * 5)
         tables, missing = live_context(Sandbox("test-only", open_request=http), EVENT, 90)
         self.assertEqual(missing, ["deal_alert_replies"])
+        history_request = urlsplit(http.requests[-1].full_url)
+        self.assertTrue(history_request.path.endswith("/soldouts"))
+        self.assertEqual(parse_qs(history_request.query)["to"], ["2026-10-19"])
         self.assertEqual(len(tables["rep_notes"]), 1)
         self.assertEqual(assess_event(EVENT, tables, live=True, incomplete=True)["action"], "manual_review")
 
@@ -224,7 +227,7 @@ class AppTestCase(unittest.TestCase):
                            "sold_out_id": "S1", "sold_out_at": EVENT.sold_out_at,
                            "rep_id": "R1", "do_not_contact": False}], "date": "2026-10-20"}
         notes = {"data": [note("N1", "Please raise the cap.", deal_id="D1")]}
-        http = HttpMock(today, notes, *[{"data": []}] * 5, {"merchant_id": "M1", "mark": None},
+        http = HttpMock(today, notes, *[{"data": []}] * 6, {"merchant_id": "M1", "mark": None},
                         URLError("gateway down"), mark, {"merchant_id": "M1", "removed": True})
         api = Sandbox("test-only", open_request=http)
         script = Path(__file__).resolve().parents[1] / "src" / "soldouts" / "rep_app.py"

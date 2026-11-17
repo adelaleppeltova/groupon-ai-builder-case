@@ -40,7 +40,7 @@ def repair_punctuation(match):
     return match[0]
 
 
-def detect(records, source, as_of, *, deal_id="", max_age_days=90):
+def detect(records, source, as_of, *, deal_id="", max_age_days=90, eligible_counts=None):
     """Input records must already be scoped to one merchant."""
     id_field, date_field, text_field = TEXT_COLUMNS[source]
     patterns = (CAPACITY | RISK) if source in ("rep_notes", "deal_alert_replies") else RISK
@@ -68,6 +68,9 @@ def detect(records, source, as_of, *, deal_id="", max_age_days=90):
         if not raw.strip():
             skipped["blank_text"] += 1
             continue
+        stale = as_of - seen > timedelta(days=max_age_days)
+        if eligible_counts is not None and not stale:
+            eligible_counts["deal" if row_deal else "merchant"] += 1
         normalized = matching_text(raw)
         categories = [label for label, pattern in patterns.items()
                       if re.search(pattern, normalized, re.IGNORECASE)]
@@ -87,7 +90,7 @@ def detect(records, source, as_of, *, deal_id="", max_age_days=90):
                 "deal_id": row_deal or None,
                 "rep_id": row.get("rep_id") or None,
                 "quote": raw,
-                "stale": as_of - seen > timedelta(days=max_age_days),
+                "stale": stale,
                 "limitations": [label for condition, label in (
                     (not row_deal, "merchant_scope_only"),
                     (truncated, "possibly_truncated"),

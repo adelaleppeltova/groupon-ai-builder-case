@@ -7,7 +7,7 @@ from zipfile import BadZipFile
 import streamlit as st
 
 from soldouts.llm import DEFAULT_MODEL, interpret, select_records
-from soldouts.rep import assess_event, demo_data, live_context, live_events
+from soldouts.rep import assess_event, demo_data, evidence_empty_message, live_context, live_events
 from soldouts.sandbox import Sandbox, SandboxError, string
 
 PACK = Path(__file__).resolve().parents[2] / "data-pack.zip"
@@ -16,7 +16,7 @@ ACTION_LABELS = {"call": "Call the merchant", "no_call": "Do not call",
                  "manual_review": "Review before acting"}
 SOURCE_LABELS = {"rep_notes": "Rep note", "deal_alert_replies": "Merchant alert reply",
                  "reviews": "Customer review", "refunds": "Refund reason",
-                 "history": "Merchant GP history", "schedules": "Automation schedules"}
+                 "history": "Merchant GP history", "schedules": "Automation schedules", "past": "Prior sold-outs"}
 LIMIT_LABELS = {"stale": "Older than the evidence window", "missing_rep_id": "Rep ID missing",
                 "possibly_truncated": "Note may be truncated", "invalid_encoding": "Text encoding issue"}
 
@@ -51,10 +51,10 @@ def show_finance(report):
                     f"£{inputs['excess_refund_gp_loss_gbp']:.2f} excess refund GP risk")
 
 
-def show_evidence(label, signals, schedules=()):
+def show_evidence(label, signals, empty_message, schedules=()):
     with st.expander(label, expanded=label == "Deal evidence"):
         if not signals and not schedules:
-            st.caption("No matching evidence in the available records.")
+            st.caption(empty_message)
         for schedule in schedules:
             st.text(f"Schedule {schedule['schedule_id']} · starts {schedule['start_date']}")
             st.caption("The schedule covers this date. Verify that the top-up ran and check the current capacity.")
@@ -221,15 +221,23 @@ def main():
         st.warning("Unavailable: " + ", ".join(SOURCE_LABELS[source] for source in missing)
                    + ". Refresh the sandbox to try again.")
     report = assess_event(event, tables, max_age_days=max_age_days, live=api is not None,
-                          incomplete=any(table != "history" for table in missing))
+                          incomplete=any(table not in {"history", "past"} for table in missing))
     st.caption(f"Merchant {event.merchant_id} · Deal {event.deal_id} · {event.sold_out_at or 'Time unavailable'}")
-    st.subheader(ACTION_LABELS[report["action"]])
+    title = "Call to verify capacity" if report["previous_increase"] else ACTION_LABELS[report["action"]]
+    st.subheader(title)
     st.write(report["reason"])
     if report["action"] == "call":
         show_finance(report)
     st.caption("Quoted text is verifiable at its source. Check whether the reported conditions still apply.")
-    show_evidence("Deal evidence", report["deal_evidence"], report["schedules"])
-    show_evidence("Merchant context", report["merchant_context"])
+    text_unavailable = any(source in missing for source in ("rep_notes", "deal_alert_replies", "reviews", "refunds"))
+    for scope, label, signals, schedules in (
+        ("deal", "Deal evidence", report["deal_evidence"], report["schedules"]),
+        ("merchant", "Merchant context", report["merchant_context"], ()),
+    ):
+        message = evidence_empty_message(report["evidence_counts"], scope, unavailable=text_unavailable)
+        if event.cutoff is None:
+            message = "Evidence could not be assessed without the sold-out time."
+        show_evidence(label, signals, message, schedules)
     show_mark(event, api)
     show_ai(event, tables, api, max_age_days)
 
