@@ -1,0 +1,141 @@
+"""Evidence and financial context for the rep view."""
+from dataclasses import dataclass
+from datetime import timedelta
+
+from .data import TEXT_COLUMNS, UK, active_schedules, pack_reader, timestamp
+from .evidence import detect, recommend
+from .finance import forecast, merchant_history
+from .sandbox import SOURCE_PATHS, SandboxError, string
+
+DEMO_IDS = ("SO-043678", "SO-000006", "SO-044275")
+
+
+@dataclass(frozen=True)
+class SoldOut:
+    merchant_id: str
+    deal_id: str
+    event_id: str
+    sold_out_at: str
+    merchant_name: str = ""
+    deal_name: str = ""
+    rep_id: str = ""
+    rep_name: str = ""
+    do_not_contact: bool | None = None
+
+    @property
+    def label(self):
+        return (f"{self.merchant_name or self.merchant_id} · "
+                f"{self.deal_name or self.deal_id} · {self.event_id or self.sold_out_at or 'No event ID'}")
+
+    @property
+    def cutoff(self):
+        try:
+            return timestamp(self.sold_out_at)
+        except (ValueError, OverflowError):
+            return None
+
+
+def live_events(rows):
+    events, seen, skipped = [], set(), 0
+    for row in rows:
+        if not isinstance(row, dict) or not all(string(row.get(k)) for k in ("merchant_id", "deal_id")):
+            skipped += 1
+            continue
+        at, mid, did = (string(row.get(k)) for k in ("sold_out_at", "merchant_id", "deal_id"))
+        event_id = string(row.get("sold_out_id")) or string(row.get("restock_task_id"))
+        key = (mid, did, event_id, at)
+        if key in seen:
+            continue
+        seen.add(key)
+        contact = row.get("do_not_contact")
+        events.append(SoldOut(mid, did, event_id, at, string(row.get("merchant_name")),
+                              string(row.get("deal_name")), string(row.get("rep_id")),
+                              string(row.get("rep_name")), contact if isinstance(contact, bool) else None))
+    return events, skipped
+
+
+def demo_data(path):
+    with pack_reader(path) as read:
+        merchants = {row["merchant_id"]: row for row in read("merchants")}
+        events = {}
+        for row in read("sold_out_deals"):
+            event_id = row["sold_out_id"]
+            if event_id in DEMO_IDS:
+                merchant = merchants.get(row["merchant_id"], {})
+                # Display metadata is from the snapshot. Do not use current contact
+                # preferences to reproduce historical decisions.
+                events[event_id] = SoldOut(row["merchant_id"], row["deal_id"], event_id,
+                                           row["sold_out_date"], merchant.get("merchant_name", ""),
+                                           rep_id=merchant.get("rep_id", ""))
+        selected = [events[i] for i in DEMO_IDS if i in events]
+        ids = {event.merchant_id for event in selected}
+        tables = {name: [r for r in read(name) if r["merchant_id"] in ids]
+                  for name in TEXT_COLUMNS}
+        for key, table in (("schedules", "auto_replenish_schedules"), ("history", "merchant_months")):
+            tables[key] = [r for r in read(table) if r["merchant_id"] in ids]
+    return selected, tables
+
+
+def live_context(api, event, max_age_days):
+    """Load one selected merchant's context. A failed feed is displayed as missing."""
+    if event.cutoff is None:
+        return {}, []
+    since = (event.cutoff - timedelta(days=max_age_days)).astimezone(UK).date().isoformat()
+    tables, missing = {}, []
+    for table, path in {**SOURCE_PATHS, "schedules": "/automation/schedules",
+                        "history": "/merchant-months"}.items():
+        filters = {"merchant_id": event.merchant_id}
+        if table in SOURCE_PATHS:
+            filters["since"] = since
+        try:
+            rows = api.pages(path, **filters)["data"]
+        except SandboxError:
+            missing.append(table)
+            continue
+        tables[table] = [r for r in rows if isinstance(r, dict) and r.get("merchant_id") == event.merchant_id]
+    return tables, missing
+
+
+def assess_event(event, tables, *, max_age_days=90, live=False, incomplete=False):
+    cutoff = event.cutoff
+    if cutoff is None:
+        action, reason = (
+            ("no_call", "The sandbox lists this merchant as do not contact.")
+            if live and event.do_not_contact is True else
+            ("manual_review", "The event time is missing or invalid. Verify it before assessing evidence.")
+        )
+        return {"action": action, "reason": reason, "deal_evidence": [], "merchant_context": [],
+                "schedules": [], "finance": None}
+    signals = []
+    for source, columns in TEXT_COLUMNS.items():
+        id_field, date_field, text_field = columns
+        records = [{k: string(row.get(k)) for k in
+                    ("merchant_id", "deal_id", "rep_id", id_field, date_field, text_field)}
+                   for row in tables.get(source, ()) if row.get("merchant_id") == event.merchant_id]
+        matches, _ = detect(records, source, cutoff, deal_id=event.deal_id, max_age_days=max_age_days)
+        signals.extend(matches)
+    deal = [signal for signal in signals if signal["deal_id"]]
+    context = [signal for signal in signals if not signal["deal_id"]]
+    schedule_fields = ("schedule_id", "merchant_id", "deal_id", "start_date", "end_date")
+    schedules = list(active_schedules(
+        ({k: string(row.get(k)) for k in schedule_fields} for row in tables.get("schedules", ())),
+        event.merchant_id, event.deal_id, cutoff,
+    ))
+    action, reason = recommend(deal, schedules)
+    if live and event.do_not_contact is True:
+        action, reason = "no_call", "The sandbox lists this merchant as do not contact."
+    elif live and incomplete:
+        action, reason = "manual_review", "Some evidence feeds could not be loaded. Confirm the deal context before acting."
+    elif live and event.do_not_contact is None and action == "call":
+        action, reason = "manual_review", "The merchant contact status is missing. Verify it before calling."
+    elif action == "manual_review" and any(not s["stale"] for s in context):
+        reason += " Review the merchant context for questions to verify on this deal."
+
+    history = (
+        {k: str(r.get(k, "")) for k in ("month", "gp_gbp", "vouchers_sold")}
+        for r in tables.get("history", ()) if r.get("merchant_id") == event.merchant_id
+    )
+    baseline = merchant_history(history, cutoff)
+    financial = forecast(baseline["net_gp_per_voucher_gbp"])
+    return {"action": action, "reason": reason, "deal_evidence": deal, "merchant_context": context,
+            "schedules": schedules, "finance": financial, "baseline": baseline}
