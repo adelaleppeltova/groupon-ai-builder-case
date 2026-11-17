@@ -199,6 +199,33 @@ class LlmTest(unittest.TestCase):
                 self.assertNotIn("findings", result)
                 self.assertEqual(result["reason"], "AI interpretation was unavailable or invalid.")
 
+    def test_diagnostics_distinguish_wire_format_citation_and_scope(self):
+        records = select_records(EVENT, {"rep_notes": [note("N1", "At capacity.")]}, 90)
+        valid = finding("N1", "At capacity.", "capacity_refusal", "manual_review")
+        fenced = response(valid)
+        fenced["content"][0]["text"] = "```json\n" + fenced["content"][0]["text"] + "\n```"
+        wrong_format = {**valid, "source_ids": ["N1"]}
+        del wrong_format["source_id"]
+        cases = (
+            (fenced, "markdown_fenced_json"),
+            ({**response(valid), "content": []}, "unexpected_content_shape"),
+            (response(wrong_format), "invalid_finding_field:source_id"),
+            (response({**valid, "source_id": "unexpected-value"}), "unknown_source_reference"),
+            (response({**valid, "quote": "Invented quote"}), "quote_mismatch"),
+            (response({**valid, "category": "refusal"}), "unsupported_category"),
+            (response({**valid, "proposed_action": "no_call"}), "action_outside_scope"),
+        )
+        for payload, code in cases:
+            with self.subTest(code=code):
+                result = interpret(Sandbox("test-only", open_request=HttpMock(payload)), records)
+                self.assertEqual(result, {"status": "fallback",
+                                         "reason": "AI interpretation was unavailable or invalid.",
+                                         "diagnostic_code": code})
+        result = interpret(Sandbox("test-only", open_request=HttpMock(response(valid))), records)
+        self.assertEqual(result["status"], "interpreted")
+        self.assertEqual(result["findings"][0]["quote"], "At capacity.")
+        self.assertEqual(result["findings"][0]["proposed_action"], "manual_review")
+
     def test_merchant_scoped_llm_action_and_transport_failure(self):
         records = select_records(EVENT, {"rep_notes": [note("N1", "Please raise the cap.")]}, 90)
         for payload in (response(finding()), URLError("offline"),
