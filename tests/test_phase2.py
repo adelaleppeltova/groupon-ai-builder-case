@@ -1,3 +1,4 @@
+from http.client import IncompleteRead
 import io
 import json
 import os
@@ -186,12 +187,17 @@ class LlmTest(unittest.TestCase):
                    {**response(finding("N0")), "stop_reason": "max_tokens"},
                    {"stop_reason": "end_turn", "content": [{"type": "text", "text": "{bad"}]},
                    {"stop_reason": "end_turn", "content": [{"type": "text", "text": '{"findings": []}'}]},
-                   {"stop_reason": "end_turn", "content": []}]
+                   {"stop_reason": "end_turn", "content": []},
+                   response({**finding("N0"), "rationale": "\ud800"}),
+                   {"stop_reason": "end_turn", "content": [{"type": "tool_use"}]},
+                   b'{"content": [', IncompleteRead(b"partial"),
+                   b"[" * 2000 + b"]" * 2000]
         for data in invalid:
             with self.subTest(data=data):
                 result = interpret(Sandbox("test-only", open_request=HttpMock(data)), self.records)
                 self.assertEqual(result["status"], "fallback")
                 self.assertNotIn("findings", result)
+                self.assertEqual(result["reason"], "AI interpretation was unavailable or invalid.")
 
     def test_merchant_scoped_llm_action_and_transport_failure(self):
         records = select_records(EVENT, {"rep_notes": [note("N1", "Please raise the cap.")]}, 90)
@@ -228,7 +234,8 @@ class AppTestCase(unittest.TestCase):
                            "rep_id": "R1", "do_not_contact": False}], "date": "2026-10-20"}
         notes = {"data": [note("N1", "Please raise the cap.", deal_id="D1")]}
         http = HttpMock(today, notes, *[{"data": []}] * 6, {"merchant_id": "M1", "mark": None},
-                        URLError("gateway down"), mark, {"merchant_id": "M1", "removed": True})
+                        response({**finding(), "rationale": "\ud800"}),
+                        mark, {"merchant_id": "M1", "removed": True})
         api = Sandbox("test-only", open_request=http)
         script = Path(__file__).resolve().parents[1] / "src" / "soldouts" / "rep_app.py"
         with patch.dict(os.environ, {"GROUPON_API_KEY": "mock-key", "GROUPON_ENABLE_LLM": "1",
@@ -238,7 +245,9 @@ class AppTestCase(unittest.TestCase):
             self.assertEqual(app.subheader[0].value, "Call the merchant")
 
             next(b for b in app.button if b.label.startswith("Analyse evidence")).click().run()
-            self.assertIn("Using deterministic evidence", app.warning[-1].value)
+            self.assertFalse(app.exception)
+            self.assertEqual(app.warning[-1].value,
+                             "Using deterministic evidence. AI interpretation was unavailable or invalid.")
             self.assertEqual(app.subheader[0].value, "Call the merchant")
 
             app.text_input[0].set_value("review")

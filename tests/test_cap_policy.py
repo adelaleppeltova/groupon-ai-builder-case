@@ -53,6 +53,28 @@ class CapPolicyTest(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertEqual(assess_event(EVENT, {**TABLES, **tables}, live=True)["action"], expected)
 
+    def test_refusal_and_uncertainty_cannot_be_promoted_by_history(self):
+        cases = (
+            ("Please raise the cap? No, keep it at 10.", "no_call", "capacity_refusal"),
+            ("Please do not raise the cap.", "no_call", "capacity_refusal"),
+            ("Please raise the cap?", "manual_review", "unclear_restock_intent"),
+            ("Merchant is not willing to raise the cap.", "manual_review", "unclear_restock_intent"),
+            ("We are not at capacity. Please raise the cap.", "manual_review", "unclear_restock_intent"),
+        )
+        for text, action, category in cases:
+            with self.subTest(text=text):
+                rec = note("N1", text, deal_id="D1")
+                result = assess_event(EVENT, {**TABLES, "rep_notes": [rec]}, live=True)
+                self.assertEqual(result["action"], action)
+                self.assertIsNone(result["previous_increase"])
+                self.assertEqual([s["category"] for s in result["deal_evidence"]], [category])
+                self.assertEqual(result["deal_evidence"][0]["quote"], text)
+
+        ambiguous = note("N1", cases[0][0])
+        result = assess_event(EVENT, {**TABLES, "past": [], "rep_notes": [ambiguous]}, live=True)
+        self.assertEqual(result["action"], "manual_review")
+        self.assertEqual(result["merchant_context"][0]["category"], "capacity_refusal")
+
     def test_contact_and_feed_guards(self):
         for contact, expected in ((True, "no_call"), (None, "manual_review")):
             self.assertEqual(assess_event(replace(EVENT, do_not_contact=contact), TABLES, live=True)["action"],

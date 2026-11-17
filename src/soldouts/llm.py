@@ -1,10 +1,11 @@
 """Optional, bounded interpretation of eligible text. The rep owns the decision."""
 from collections import Counter
 from datetime import timedelta
+from http.client import IncompleteRead
 import json
 
 from .data import TEXT_COLUMNS, deduplicate, timestamp
-from .evidence import ACTIONS, RISK, quote_is_grounded
+from .evidence import ACTIONS, CAPACITY, RISK, quote_is_grounded
 from .sandbox import SandboxError, string
 
 ENDPOINT = "/llm/v1/messages"
@@ -74,7 +75,8 @@ def select_records(event, tables, max_age_days):
 
 
 def nonempty(value, max_chars):
-    return isinstance(value, str) and bool(value.strip()) and len(value) <= max_chars
+    return (isinstance(value, str) and bool(value.strip()) and len(value) <= max_chars
+            and not any("\ud800" <= ch <= "\udfff" for ch in value))
 
 
 def validate_response(response, records):
@@ -103,7 +105,7 @@ def validate_response(response, records):
                                                    {item["source_id"]: record["text"]}):
             raise InvalidAnalysis("A quoted finding did not match its source record.")
         category = item["category"]
-        if category not in ACTIONS or (record["source"] in ("reviews", "refunds") and category not in RISK):
+        if category not in (CAPACITY | RISK) or (record["source"] in ("reviews", "refunds") and category not in RISK):
             raise InvalidAnalysis("A finding used an unsupported evidence category.")
         allowed = {"manual_review"}
         if record["deal_id"] and not record["truncated"]:
@@ -126,6 +128,6 @@ def interpret(api, records, model=DEFAULT_MODEL):
             ], ensure_ascii=False)}]}
     try:
         analysis = validate_response(api.request("POST", ENDPOINT, body=body, timeout=25), records)
-    except (InvalidAnalysis, SandboxError) as exc:
-        return {"status": "fallback", "reason": str(exc)}
+    except (InvalidAnalysis, SandboxError, IncompleteRead, RecursionError):
+        return {"status": "fallback", "reason": "AI interpretation was unavailable or invalid."}
     return {"status": "interpreted", "model": model, **analysis}

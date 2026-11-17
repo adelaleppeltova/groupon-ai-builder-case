@@ -7,7 +7,14 @@ from .data import TEXT_COLUMNS, active_schedules, deduplicate, timestamp
 from .finance import forecast, merchant_history
 
 CAPACITY = {
-    "capacity_refusal": r"\b(?:at (?:full )?capacity|fully booked|cap stays|no more bookings|can't (?:take|handle|cope with) (?:any )?more|(?:won't|will not|don't want to|do not want to) (?:restock|raise the cap|top up))\b",
+    "capacity_refusal": (
+        r"\b(?:(?<!not )(?<!aren't )(?<!isn't )(?:at (?:full )?capacity|fully booked)"
+        r"|cap stays|no more bookings"
+        r"|(?:can't|cannot) (?:take|handle|cope with) (?:any )?more"
+        r"|(?:won't|will not|don't want to|do not want to|don't|do not|declined to)"
+        r" (?:restock|(?:raise|increase) the cap|top[ -]up)"
+        r"|no[,.!-]?\s+(?:please\s+)?(?:keep|leave) (?:it|the cap) (?:at|as is))\b"
+    ),
     "restock_willingness": r"\b(?:yes[ ,]+(?:please )?top[ -]up|(?:happy|willing) to (?:restock|top[ -]up|(?:raise|increase|push up) the cap)|please (?:restock|top[ -]up|raise the cap|increase the cap))\b",
     "automation_problem": r"\b(?:link (?:doesn't work|keeps timing out|is broken)|(?:auto(?:matic)?[ -]top[ -]up|auto[ -]replenish) (?:failed|isn't working|didn't run)|never set up a password)\b",
 }
@@ -18,6 +25,7 @@ RISK = {
 ACTIONS = {
     "capacity_refusal": "no_call",
     "restock_willingness": "call",
+    "unclear_restock_intent": "manual_review",
     "automation_problem": "check_automation",
     "operational_issue": "ops_followup",
     "customer_refund_risk": "ops_followup",
@@ -74,10 +82,17 @@ def detect(records, source, as_of, *, deal_id="", max_age_days=90, eligible_coun
         normalized = matching_text(raw)
         categories = [label for label, pattern in patterns.items()
                       if re.search(pattern, normalized, re.IGNORECASE)]
-        if "restock_willingness" in categories and re.search(
-            r"\b(?:not|never|isn't|aren't|wasn't|weren't)\b", normalized, re.IGNORECASE
-        ):
-            categories.remove("restock_willingness")  # A negation may qualify the match.
+        if "restock_willingness" in categories:
+            question = any(re.match(r"^[^.!?\n]*\?", normalized[m.end():])
+                           for m in re.finditer(CAPACITY["restock_willingness"], normalized, re.IGNORECASE))
+            negation = re.search(
+                r"\b(?:no|not|never|isn't|aren't|wasn't|weren't|don't|won't|can't|cannot)\b",
+                normalized, re.IGNORECASE,
+            )
+            if question or negation:
+                categories.remove("restock_willingness")
+                if "capacity_refusal" not in categories:
+                    categories.append("unclear_restock_intent")
         truncated = source == "rep_notes" and len(raw) >= 500
         malformed = "\ufffd" in raw or any("\udc80" <= ch <= "\udcff" for ch in raw)
         for category in categories:
@@ -116,6 +131,8 @@ def recommend(signals, schedules=()):
     deal_actions = {ACTIONS[s["category"]] for s in eligible}
     if len(actions) > 1:
         return "manual_review", "Recent signals suggest different actions; ask the rep to resolve them."
+    if not schedules and actions == {"manual_review"}:
+        return "manual_review", "Recent text does not clearly confirm restock intent."
     if schedules and actions == {"no_call"}:
         return "manual_review", "Capacity refusal and a live schedule need rep verification."
     if deal_actions and (not schedules or deal_actions == {"ops_followup"}):
