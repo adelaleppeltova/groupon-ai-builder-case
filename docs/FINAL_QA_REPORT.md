@@ -1,8 +1,12 @@
 # Groupon Sold-outs MVP — Final QA and release audit
 
-Audit date: 17 November 2026. Commit audited: `747636c`.
+Original audit date: 17 November 2026. Commit audited: `747636c`. Latest verified implementation: `8b7e787`.
 
-**Corrective verification after this audit.** Commit `6174eb3` resolved the reproduced refusal error and malformed model response crash. Before the fix the synthetic refusal returned `call`. It now returns `no_call` for an exact-deal record, and competing current signals remain subject to review. Mocked invalid Unicode now leaves the deterministic UI available with a fixed fallback message. All 36 project tests, 17 patched routing tests and 11 separately extracted original tests passed. Loopback startup returned `ok`. The 91 captured actions matched the original post-cap-history replay event for event. Routing files are unchanged and the flag is off.
+**Current status: READY WITH DOCUMENTED LIMITATIONS — pending manual AI session exports and Desk submission verification.** The original NOT READY verdict below applies to the pre-fix commit. The January pilot remains unapproved and has not started.
+
+The latest offline run passed **37 project tests** and **17 routing tests**, with zero failures or skips. The routing suite includes the 11 original tests, which also passed separately from the original archive during corrective verification.
+
+**Corrective verification after the original audit.** Commit `6174eb3` resolved the reproduced refusal error and malformed model response crash. Before the fix the synthetic refusal returned `call`. It now returns `no_call` for an exact-deal record, and competing current signals remain subject to review. Mocked invalid Unicode now leaves the deterministic UI available with a fixed fallback message. At that checkpoint, all 36 project tests, 17 patched routing tests and 11 separately extracted original tests passed. Commit `8b7e787` added adapter diagnostics and a regression test while preserving exact citation validation and safe fallback. Loopback startup returned `ok`. The 91 captured actions matched the original post-cap-history replay event for event. Routing files are unchanged and the flag is off.
 
 The [Greg request](GREG_CHANGE_REQUEST.md), [Dan lines](DAN_THREE_LINES.md), [cut list](../README.md#submission-and-known-limits) and [export checklist](AI_SESSION_EXPORT_CHECKLIST.md) are now prepared. Manual exports and Desk verification remain submission tasks. Live cap-history checks and the future pilot export remain unverified. See the manual verification update below for live integration results.
 
@@ -18,13 +22,15 @@ The [Greg request](GREG_CHANGE_REQUEST.md), [Dan lines](DAN_THREE_LINES.md), [cu
 The automated suites use mocks for API and gateway response handling, malformed model text, fabricated citations and fallback rendering. The live results above are from the candidate’s manual verification. The audit sections below describe the originally audited commit, including historical test failures and missing artefacts at that point.
 
 
-## 1. Executive summary
+---
 
-**NOT READY for submission.** The offline MVP runs from a clean install, the 91-event replay reproduces the expected recommendations, and all automated suites pass. Two adversarial inputs expose gaps outside those suites. A deal-linked refusal can be interpreted as willingness, and malformed model text can crash the optional analysis panel. The one-page change request for Greg, three lines for Dan, and AI session exports were not found in the audited checkout. The Desk checklist itself was not verified.
+## 1. Executive summary of the original audit
+
+**Original verdict: NOT READY for submission at `747636c`.** The offline MVP runs from a clean install, the 91-event replay reproduces the expected recommendations, and all automated suites pass. Two adversarial inputs expose gaps outside those suites. A deal-linked refusal can be interpreted as willingness, and malformed model text can crash the optional analysis panel. The one-page change request for Greg, three lines for Dan, and AI session exports were not found in the audited checkout. The Desk checklist itself was not verified.
 
 Readiness for submission is separate from readiness for a January pilot. The pilot has not started. The flag is off and approval, export validation and Sales ownership are pending.
 
-## 2. Automated test results
+## 2. Original automated test results
 
 | Command | Total | Passed / failed / skipped | Errors and network |
 |---|---:|---:|---|
@@ -37,7 +43,7 @@ A fresh `python3 -m venv` and `python -m pip install -r requirements.txt` comple
 
 Project tests cover HTTP and model contracts through mocks. They cannot verify actual response fields, sandbox acceptance of mark payloads, or model behaviour. The routing baseline uses the supplied input and synthetic boundary cases. The 91-event replay uses a captured batch and the supplied snapshot, so it does not represent performance on unseen batches.
 
-## 3. Functional verification
+## 3. Original functional verification
 
 | Component | Status | Evidence and limits |
 |---|---|---|
@@ -49,7 +55,7 @@ Project tests cover HTTP and model contracts through mocks. They cannot verify a
 | Live sandbox HTTP | BLOCKED | `GROUPON_API_KEY` was unavailable to the audit shell. No authenticated calls were made. The earlier browser smoke test observed 91 events for team date 10 November and some schedules. It does not validate each endpoint or the new history request. Checked the previously fetched public contract and offline request tests for pagination, timestamps, timeouts and matching. One failed text feed leaves a cautious recommendation. |
 | Model adapter and advisory UI | FAIL | Mocked valid structured requests/responses, separate contradictory findings, source IDs, exact quote checks, fabricated quotes, malformed JSON, missing fields and truncated responses. Mocked 402, 429, 503 and timeout all returned deterministic fallback. Also reproduced an accepted Unicode surrogate followed by a Streamlit exception. Real paid inference is unverified. Model findings do not set the deterministic action, compute displayed GBP amounts, or enter routing. |
 | Merchant marks | FAIL | Mocked read, save, overwrite, delete, empty reason, merchant 404 and write 503. AppTest verified a successful save and deletion while the recommendation stayed the same. Invalid nonempty rep IDs are sent unchanged. Actual mark persistence and authenticated refresh are unverified. Marks do not enter routing. |
-| Routing with supplied inputs | PASS | Original and patched full today/carried JSON, stdout and stderr matched byte for byte with effective flag off. Input, config and priors match the original Git import. In tests, overrides win, only the exact deal within its merchant can be suppressed, callbacks are protected from the new policy, and malformed, missing, stale, future and merchant-wide entries are ignored. Audit includes source, reason, task, IDs, evaluation date and totals. Flag-off restores the baseline at the next run. Tier below records the inherited missing-column failure. |
+| Routing with supplied inputs | PASS | Original and patched full today/carried JSON, stdout and stderr matched byte for byte with effective flag off. Input, config and priors match the original Git import. In tests, overrides win, only the exact deal within its merchant can be suppressed, callbacks are protected from the new policy, and malformed, missing, stale, future and merchant-wide entries are ignored. Audit includes source, reason, task, IDs, evaluation date and totals. Flag-off restores the baseline at the next run. The findings table records the inherited missing-column failure. |
 | Holdout and evaluator | PASS | Synthetic output recreated byte-for-byte with the default seed. Tests cover stable sorted-roster assignment, repeated merchant and sold-out records, cohort separation, incomplete windows, missing GP, weighted difference, recovery thresholds and a header-only empty export. Synthetic output showed 4 treatment and 1 holdout merchants, 3 suppressions, 36 estimated gross minutes avoided at 12 minutes/task, £115 vs £100 GP and two reportable recoveries. An illustrative 11 January start gives 10 February window close and 13 February earliest readout with 3 processing days. No real export or impact estimate was validated. |
 
 **Captured cohort replay.** Reran all 91 event IDs and timestamps from the 10 November team day with the supplied data pack, using the app's since filter and snapshot contact flags. With history unavailable the offline baseline matched the previously observed live counts. With history available, 29 reviews became calls to verify capacity. The after column is offline, and does not verify live contact permissions or the schedule/history endpoints.
@@ -60,13 +66,13 @@ Project tests cover HTTP and model contracts through mocks. They cannot verify a
 | Check automation | 24 | 24 |
 | Verify capacity by phone | 0 | 29 |
 
-## 4. Critical findings
+## 4. Original findings and resolution status
 
 | Severity | Reproduction and impact | Proposed disposition |
 |---|---|---|
-| **BLOCKER — submission package** | At the audited commit, `git ls-files` shows the README, decision log and Hana’s review brief. The brief is a technical review, and the requested Greg change request, Dan lines and cut list are absent. No reviewable AI session exports were found. Desk fields and required links were not verified. | Assemble and verify the required items against Desk before submitting. Use the QA caveats and documented stakeholder status. |
-| **HIGH — refusal misread as willingness** | Run `soldouts.cli detect` on a recent exact-deal rep note with a valid rep ID and text `Please raise the cap? No, keep it at 10.` The detector returns `call` with a `restock_willingness` signal. This was reproduced on synthetic, explicitly linked text. The documented live notes/replies generally lack a deal ID, which limits exposure. | Add a narrow guard for questions or explicit reversals and return review for ambiguity. Verify prior legitimate exact-deal calls and the captured replay. Until resolved, verify intent against the quote before acting. [evidence.py](../src/soldouts/evidence.py#L77) |
-| **MEDIUM — malformed model text can crash analysis** | Mock a completed valid-quote JSON response with an escaped unpaired `\\ud800` in `rationale`. The adapter accepts the response, and clicking Analyse in AppTest produces an encoding exception. No live model call was made. | Reject strings that cannot be UTF-8 encoded at validation time and use existing fallback. If time is short, keep the optional model mode disabled and disclose the gap. [llm.py](../src/soldouts/llm.py#L76) |
+| **BLOCKER — submission package (documents prepared, handoff pending)** | At the audited commit, `git ls-files` shows the README, decision log and Hana’s review brief. The brief is a technical review, and the requested Greg change request, Dan lines and cut list are absent. No reviewable AI session exports were found. Desk fields and required links were not verified. | Assemble and verify the required items against Desk before submitting. Use the QA caveats and documented stakeholder status. |
+| **HIGH — refusal misread as willingness (resolved)** | Run `soldouts.cli detect` on a recent exact-deal rep note with a valid rep ID and text `Please raise the cap? No, keep it at 10.` The detector returns `call` with a `restock_willingness` signal. This was reproduced on synthetic, explicitly linked text. The documented live notes/replies generally lack a deal ID, which limits exposure. | Fixed in `6174eb3`. The exact-deal refusal now returns `no_call`, ambiguity goes to review, and historical cap increases cannot override a current deal-specific refusal. The regressions and 91-event replay passed. [evidence.py](../src/soldouts/evidence.py#L77) |
+| **MEDIUM — malformed model text can crash analysis (resolved)** | Mock a completed valid-quote JSON response with an escaped unpaired `\\ud800` in `rationale`. The adapter accepts the response, and clicking Analyse in AppTest produces an encoding exception. No live model call was made. | Fixed in `6174eb3`. Invalid Unicode is rejected, leaving the deterministic recommendation visible. `8b7e787` added safe diagnostic codes. [llm.py](../src/soldouts/llm.py#L76) |
 | **MEDIUM — invalid rep attribution** | Call `Sandbox.set_mark("M1", "test", "qa", "not-a-rep")` using the mock transport. The outgoing payload contains that rep ID. The client validates presence but does not validate membership in the rep list. Server-side acceptance was not tested. | Before real mark testing, use a known sandbox rep ID. A small future fix can validate against the rep roster or use an explicit rep selection. [sandbox.py](../src/soldouts/sandbox.py#L100) |
 | **MEDIUM — inherited malformed routing row aborts run** | Remove the `callback_promised` key from an otherwise eligible task and call `build_plan`. Both flag positions raise `KeyError`. This was reproduced locally with no config edits or activation. A present but nonstandard callback value is kept by the new filter. | Confirm the feed contract and validate required headers upstream before a pilot. Treat a missing field as an invalid input and report the failed run. Keep original legacy filters intact. [plan.py](../routing/routing/plan.py#L67) |
 | **LOW — wrong CSV schema passes on zero rows** | Write only `wrong\n` to a detector CSV and run `detect`. It exits successfully with `manual_review`. Adding a data row makes it correctly fail. | Check required headers even for a zero-row file. [cli.py](../src/soldouts/cli.py#L57) |
@@ -93,17 +99,15 @@ The manual update above records completion of the basic sandbox read, mark save/
 
 - [x] Local startup, commands and fixture status in the [README](../README.md).
 - [x] Decision log and separate milestone commits. [DECISIONS](../DECISIONS.md) · [Hana review brief](hana-routing-review.md)
-- [ ] Add one-page January change request for Greg, three concise lines for Dan, and a short cut list. Carry forward staging dependencies, safe rollback and readout timing.
-- [ ] Export the relevant AI sessions. Review exports for secrets, confirm links/files open, and state which live model and mark checks remain unverified. The README has model instructions; an export was not present.
+- [x] Prepare the one-page January request for Greg, final three lines for Dan and README cut list.
+- [ ] Export the relevant AI sessions. Review exports for secrets, confirm links/files open, and include the live gateway results and their limitations. The README has model instructions; an export was not present.
 - [ ] Open the Desk Submit panel under the candidate’s account. Verify the exact required items and link permissions. If the panel accepts local execution, give the documented startup and explain that the supplied ZIP is needed for the offline demo. No public URL was verified.
-- [ ] Resolve or explicitly disclose the adverse-input defects and finish the permitted read-only smoke. Mark/LLM integration checks require their separate approvals.
+- [x] Fix and regression-test both reproduced application defects. Record the completed live smoke and its remaining limitations.
 
 ## 8. Recommended cuts
 
-Defer public hosting, dashboards, broad NLP rewrites, richer confidence intervals and further historical association analysis. If approval or time runs short, keep the optional LLM mode disabled and document that the gateway was mocked. Preserve the routing freeze and avoid adding automatic recovery or activation.
+Defer public hosting, dashboards, broad NLP rewrites, richer confidence intervals and further historical association analysis. Document the narrow live gateway smoke and leave broader accuracy and live Streamlit rendering outside the submission checks. Preserve the routing freeze and avoid adding automatic recovery or activation.
 
 ## 9. Final recommendation
 
-Complete the submission materials and verify the Desk requirements first. The smallest code correction with the clearest user benefit is a narrow guard for ambiguous or reversed restock intent with a regression test. Keep the optional LLM disabled until malformed text falls back safely. Run the authenticated read-only smoke if credentials become available, and disclose every unverified integration instead of holding the offline submission for a real experiment. A January pilot still requires written approval, confirmation of the routing input contract, and an agreed Sales reporting owner.
-
-This audit produced this report only. Application and routing source were left untouched.
+Finish the manual AI session exports and verify the Desk requirements and reviewer access before submitting. The two reproduced application defects are resolved. The basic live integration smoke has been recorded, and accepted-response rendering in Streamlit, broader model accuracy, and targeted live history checks remain unverified. A January pilot still requires Greg’s written approval, confirmation of the routing input contract and an agreed Sales reporting owner.

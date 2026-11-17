@@ -8,7 +8,7 @@ The Git patch starts at the verbatim routing import `867d783`. Run `git diff 867
 - **With the switch on:** Only otherwise eligible restock rows explicitly marked as non-callbacks can be removed. A task must match both merchant and deal against a single, current entry with a recognised reason and rep confirmation source. Merchant-wide entries are ignored and diagnosed. The remaining tasks use the same ranking and budget. Legacy suppression can still exclude callbacks as before.
 - **Example from the test:** On 2026-11-09 the planner suppresses task `S1` for deal `D1` at merchant `M1`. It cites CSV line 2, `capacity_confirmed`, `rep_confirmed:R01` and confirmation date 2026-11-02. It retains promised callback `C1` for that same deal. The summary records one suppression, one protected callback and zero callbacks removed by the new mechanism.
 
-Verification covered 17 routing tests, including the 11 original tests, and 25 project tests. The shipped input produced the same full today/carried plans and byte-identical CLI output with the switch off. The pilot tests exercised eligibility, missing and malformed input, dates, environment overrides, audit and rollback.
+Verification covered 17 routing tests, including the 11 original tests, and 37 project tests. The shipped input produced the same full today/carried plans and byte-identical CLI output with the switch off. The pilot tests exercised eligibility, missing and malformed input, dates, environment overrides, audit and rollback.
 
 **Monitoring and proposed stop rules**
 
