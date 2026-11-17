@@ -10,6 +10,12 @@ The latest offline run passed **37 project tests** and **17 routing tests**, wit
 
 The [Greg request](GREG_CHANGE_REQUEST.md), [Dan lines](DAN_THREE_LINES.md), [cut list](../README.md#submission-and-known-limits) and [export checklist](AI_SESSION_EXPORT_CHECKLIST.md) are now prepared. Manual exports and Desk verification remain submission tasks. Live cap-history checks and the future pilot export remain unverified. See the manual verification update below for live integration results.
 
+## Stakeholder update — 17 November 2026
+
+Greg reviewed the January request and confirmed the 15:00 review that day as a January item. He clarified that Ops owns the switch and rollback and asked whether Hana had agreed to monitor and received the diff. Hana has now received the diff and review brief and supplied technical feedback, confirming the small, off-by-default approach and flag-off baseline comparison. She confirmed last-merged override precedence and requested the explicit README rollback check, now documented.
+
+Hana watches technical run logs only. Production stderr capture is unverified, and she will not own daily exports. Greg must assign an export owner. Sales recovery reporting still needs an agreed owner. Separate written deployment and activation approval remains outstanding. The pilot has not started.
+
 ## Manual verification update — 17 November 2026
 
 | Area | Verified live | Remaining limits |
@@ -91,7 +97,7 @@ The manual update above records completion of the basic sandbox read, mark save/
 
 - The effective default suppression switch is OFF and the shipped CSV is empty. The flag-on tests used temporary config/data only. There was no deployment, credential retrieval, authenticated request, sandbox write or paid call during the audit.
 - Tracked-file scans for common credential signatures found no matches. This is a limited scan. `.env`, key files and local archives are ignored. Start the app with the key in the process environment and avoid printing it or capturing it in a terminal recording or session export.
-- Greg agreed to review a January proposal. Deployment and activation approval are outstanding. Hana agreed to monitor technical runs in a future pilot. Her code review and Sales recovery ownership are still pending. No documented Renee validation was found.
+- Greg reviewed the request and confirmed its January review item. Separate deployment and activation approval remains outstanding. Hana received the diff and supplied feedback. Ops owns switch operation and rollback. Hana monitors technical logs only. Production stderr capture is unverified, Greg must assign daily-export ownership, and Sales recovery ownership remains unconfirmed. No documented Renee validation was found.
 - A structured `rep_confirmed:Rxx` source is syntax, not proof of rep ownership or confirmation. Routing logs can count suppressions and protected input callbacks. They cannot prove a real callback occurred or identify an unplanned Sales recovery. Retain logs and list versions separately. Configuration rollback restores subsequent runs and requires reconciliation for already omitted tasks.
 - Priya’s £11.08 is observational. The pilot’s gross time illustration and the synthetic evaluator output do not establish net savings, experiment results or causal GP. The holdout ratio and stop rules remain proposed.
 

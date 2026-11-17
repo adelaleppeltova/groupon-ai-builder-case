@@ -85,7 +85,23 @@ For a recommended call, the forecast multiplies added capacity by the assumed in
 
 These are illustrative scenarios, not estimates of treatment effect or confidence bounds. Finance does not drive the action, and the live recommendation would still need rep validation before use.
 
-The proposed January routing patch is ready for [Hana’s review](docs/hana-routing-review.md). The holdout tools below run offline. Observational study reproduction and submission preparation are outside this phase.
+Hana received the routing diff and brief and supplied [technical feedback](docs/hana-routing-review.md). Greg reviewed the request and confirmed the 15:00 review on 17 November 2026 as a January item. Separate written deployment and activation approval remains outstanding. The holdout tools below run offline. Observational study reproduction and submission preparation are outside this phase.
+
+### Proposed routing rollback — Ops owns the switch
+
+Ops owns operation of the routing switch and rollback. During an authorised rollback, Ops must check `routing/config/routing.json` and `routing/config/env_overrides.json`. The environment override is merged last and takes precedence over the base configuration. Its current contents override `priors.restock` only, with no `routing` section. Check the effective configuration at the time of rollback because a later routing override can supersede the base switch.
+
+1. Ops sets the base `suppress_soldout_tasks` to `false` and checks that any effective `routing.suppress_soldout_tasks` override is also `false` or absent.
+2. From the deployed routing checkout, Ops verifies the merged value with the read-only check below. It must print `False`.
+3. Ops verifies the next plan against baseline and reconciles previously omitted tasks with Sales. Disabling the switch does not recreate already omitted tasks.
+
+```sh
+cd routing
+python3 -c 'from routing.plan import load_config; value = load_config()["suppress_soldout_tasks"]; print(value); assert value is False'
+```
+
+Hana watches technical run logs only. She has not verified that the production runner captures stderr and will not own daily log exports. Greg must assign an export owner and resolve capture and retention before a pilot.
+
 
 ## January pilot measurement
 
@@ -116,7 +132,7 @@ The comparison uses original assignment regardless of whether a task was suppres
 
 The first cohort’s earliest readout is **start + 30 days + processing allowance**. `--processing-days` defaults to an illustrative three days. With the synthetic 11 January 2027 start, the first cohort’s window ends 10 February and could be read out on 13 February if the data are available. Later cohorts mature separately. Refunds can arrive after 30 days. Priya’s reported £11.08 is a historical association and stays out of the calculations. The illustrative gross time range is £50–£150 per 100 eligible tasks if 10–30 are safely avoided at 12 minutes and £25/hour. A provisional net GP range is unavailable without assumptions about foregone GP and recovery.
 
-The proposed stop thresholds are one attributable missed promised callback, or at least two suppressed sold-outs requiring unplanned rep recovery within seven days among the first 20 actual suppressions. Incomplete timing, a timestamp tie across position 20, or incomplete incident coverage can make the status indeterminate. Hana can monitor technical routing logs and preserve task-level events separately from their 14-day retention. Those logs can count removals and input-flagged callbacks. Confirming actual missed calls and recovery requires external follow-up, with a Sales owner still to be agreed. The evaluator reports status for review. Operators retain control of stopping or activating the pilot.
+The proposed stop thresholds are one attributable missed promised callback, or at least two suppressed sold-outs requiring unplanned rep recovery within seven days among the first 20 actual suppressions. Incomplete timing, a timestamp tie across position 20, or incomplete incident coverage can make the status indeterminate. Hana monitors technical routing logs only. Greg must assign an owner to preserve task-level events beyond their 14-day retention, and production stderr capture remains unverified. Those logs can count removals and input-flagged callbacks. Confirming actual missed calls and recovery requires external follow-up, with a Sales owner still to be agreed. The evaluator reports status for review. Operators retain control of stopping or activating the pilot.
 
 ## Submission and known limits
 

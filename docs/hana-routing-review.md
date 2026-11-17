@@ -1,6 +1,10 @@
 # Hana’s technical review of the January routing proposal
 
-Greg agreed to review this as a January item. Approval for deployment and activation is outstanding. Hana agreed to monitor morning technical runs during a future pilot. Her review of this diff is pending.
+Greg reviewed the change request and confirmed the 15:00 review on 17 November 2026 as a January item. Separate written approval for deployment and activation is outstanding. Ops owns operation of the routing switch and rollback.
+
+Hana received the routing diff and review brief and responded with technical feedback. She confirmed the small, off-by-default approach and the flag-off comparison with original routing. She confirmed that the environment override is merged last and takes precedence. The current override contains `priors.restock`, with no `routing` section. She requested an explicit rollback check of both the base config and the effective override. The README now records that procedure.
+
+Hana watches technical run logs only. She has not verified production stderr capture and will not own daily exports. Greg must assign that owner.
 
 The Git patch starts at the verbatim routing import `867d783`. Run `git diff 867d783 HEAD -- routing README.md docs/hana-routing-review.md` to see it. The planner adds the eligibility check and run audit in `routing/routing/plan.py`. The CSV validation lives in `routing/routing/suppressions.py`. The new tests are in `routing/tests/test_pilot_suppressions.py`. The routing README documents config, logs and rollback.
 
@@ -14,13 +18,13 @@ Verification covered 17 routing tests, including the 11 original tests, and 37 p
 
 - One missed promised callback attributable to the new mechanism triggers an immediate stop. The audit can check the count of input-flagged callbacks removed by this planner and trace matched callbacks by task ID. The morning run audit cannot confirm that a rep actually called or that every promised callback was marked correctly upstream.
 - At least two cases requiring unplanned rep recovery among the first 20 suppressed sold-outs, assessed within seven days, trigger a stop and investigation. Sales needs to confirm and record recovery cases against suppressed task IDs. Dan has yet to confirm the Sales owner.
-- Hana would check the morning technical runs. Preserve daily audit events and their source list version outside the 14-day routing log retention window. The proposal has no automatic stop or activation.
+- Hana checks technical run logs only. A daily-export owner assigned by Greg must preserve daily audit events and their source list version outside the 14-day routing log retention window. The proposal has no automatic stop or activation.
 
-**Questions for Hana**
+**Outstanding operational questions**
 
-1. Can the runner collect JSON lines from stderr and link each run to the exact CSV version? Where should daily copies be stored, and who will own that export?
+1. Greg and Ops need to confirm whether the production runner captures stderr and links each run to the exact CSV version. Greg must name the daily-export owner and confirm storage. Hana has not verified capture and will not own exports.
 2. Can Ops and Sales support the proposed reason codes, rep ID format and inclusive seven-day window? Who will verify the owning rep’s confirmation, publish the file and handle revocations?
 3. Is the callback flag complete in the overnight input? Who reconciles reported callback misses with the upstream records and the existing legacy filters?
-4. Who can set the effective flag back to `false` and reconcile an already published list? Check both the base config and the environment override during rollback.
+4. Ops owns setting the effective flag back to `false`. Confirm the operational handoff for reconciliation with Sales. Check both the base config and last-merged environment override during rollback.
 
 A syntactically correct but false confirmation can still remove a task. The ownership and verification workflow above is the primary control for that risk. Disabling the effective flag restores baseline behaviour on the next run. Legacy suppressions remain in force.
