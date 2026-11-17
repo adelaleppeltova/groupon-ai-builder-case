@@ -19,3 +19,11 @@ ai-exports/
 # Node.js (pokud použiješ frontend)
 node_modules/
 dist/
+
+# Local exercise inputs and generated reports
+/data-pack.zip
+/routing.zip
+/data/
+/reports/
+.env.*
+!.env.example
