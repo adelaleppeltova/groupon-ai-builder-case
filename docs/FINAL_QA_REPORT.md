@@ -1,0 +1,95 @@
+# Groupon Sold-outs MVP — Final QA and release audit
+
+Audit date: 17 November 2026. Commit audited: `747636c`.
+
+**Corrective verification after this audit.** Commit `6174eb3` resolved the reproduced refusal error and malformed model response crash. Before the fix the synthetic refusal returned `call`. It now returns `no_call` for an exact-deal record, and competing current signals remain subject to review. Mocked invalid Unicode now leaves the deterministic UI available with a fixed fallback message. All 36 project tests, 17 patched routing tests and 11 separately extracted original tests passed. Loopback startup returned `ok`. The 91 captured actions matched the original post-cap-history replay event for event. Routing files are unchanged and the flag is off.
+
+The [Greg request](GREG_CHANGE_REQUEST.md), [Dan lines](DAN_THREE_LINES.md), [cut list](../README.md#submission-and-known-limits) and [export checklist](AI_SESSION_EXPORT_CHECKLIST.md) are now prepared. Manual exports and Desk verification remain submission tasks. The authenticated history and mark workflow, paid model smoke and future pilot export remain unverified. The sections below preserve the findings at the audited commit.
+
+## 1. Executive summary
+
+**NOT READY for submission.** The offline MVP runs from a clean install, the 91-event replay reproduces the expected recommendations, and all automated suites pass. Two adversarial inputs expose gaps outside those suites. A deal-linked refusal can be interpreted as willingness, and malformed model text can crash the optional analysis panel. The one-page change request for Greg, three lines for Dan, and AI session exports were not found in the audited checkout. The Desk checklist itself was not verified.
+
+Readiness for submission is separate from readiness for a January pilot. The pilot has not started. The flag is off and approval, export validation and Sales ownership are pending.
+
+## 2. Automated test results
+
+| Command | Total | Passed / failed / skipped | Errors and network |
+|---|---:|---:|---|
+| `PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v` | 35 | 35 / 0 / 0 | None. Streamlit emitted a benign bare-mode warning. Offline. |
+| `PYTHONPATH=src "$qa_root/venv/bin/python" -m unittest discover -s tests` in a fresh temporary venv | 35 | 35 / 0 / 0 | Same result on Python 3.13.14 with Streamlit 1.67.0. Offline after setup. |
+| `(cd routing && python3 -m unittest discover -s tests -v)` | 17 | 17 / 0 / 0 | 11 original and 6 suppression tests. Offline. |
+| `(cd "$original_extract/routing" && python3 -m unittest discover -s tests)` after extracting the original archive to a temporary directory | 11 | 11 / 0 / 0 | None. Offline. |
+
+A fresh `python3 -m venv` and `python -m pip install -r requirements.txt` completed with package-index access available. The documented Streamlit startup worked with local headless and port options added. Its loopback health endpoint returned `ok`. Imports worked. `git diff --check` passed. Ruff and a configured lint suite were unavailable.
+
+Project tests cover HTTP and model contracts through mocks. They cannot verify actual response fields, sandbox acceptance of mark payloads, or model behaviour. The routing baseline uses the supplied input and synthetic boundary cases. The 91-event replay uses a captured batch and the supplied snapshot, so it does not represent performance on unseen batches.
+
+## 3. Functional verification
+
+| Component | Status | Evidence and limits |
+|---|---|---|
+| Repository and setup | PASS | Clean before audit. Eight commits from initial setup through Phase 4. Both ignored archives match the originals in Downloads byte for byte. Standard imports and documented commands worked once the separately supplied data archive was present. A code-only checkout needs the archive for the historical demo and ZIP replay. |
+| Offline detector and CLI | FAIL | Real reply CSV for M10726 returned one traceable quote and cautious review. The supplied ZIP replay for SO-000006 returned `check_automation`. Tests and probes covered unseen records, replay duplicates, missing IDs, other merchants and deals, malformed dates, invalid UTF-8, mojibake, truncation, stale/future text, conflict and merchant scope. A zero-byte CSV and a populated file with wrong headers exit 2. Valid headers with zero rows produce review. Wrong headers with zero rows incorrectly do the same. The refusal probe below also failed. |
+| Cap-history policy | PASS | Tested exact identity, increasing versus unchanged cap, inclusive 90-day boundary, earlier cutoff, same-day and future events, stale, missing and tied history, automation precedence and overlap, contact clearance, incomplete feeds and contradictory deal signals. Unlinked merchant text remains context. The historical fallback runs without GP data. Existing language-matching defect is tracked separately below. |
+| Deterministic financial model | PASS | Independent calculation with £100 net historic GP over 10 vouchers gives £10/voucher. At 12 minutes and £25/hour, rep cost is £5. Low/base/high = `5×.25×£10−£5−£5 = £2.50`, `10×.50×£10−£5−£2 = £43.00`, `15×.75×£10−£5 = £107.50`. A £999 historic refund total added to the test row did not get subtracted again. Probed zero and negative outcomes, penny rounding, missing data, NaN/Infinity and invalid fill rates. The model does not use the £11.08 association or convert customer refund amounts to GP exposure. |
+| Streamlit offline UI | PASS | Started the actual server on loopback and inspected browser rendering. Verified historical labelling, identifiers, separate deal/context panels, visible quotes and mark fields. AppTest verified rep filtering, operations and automation recommendations, and absence of call economics in the operations example. The project regression covers zero, excluded, unrecognised and unavailable text states at the message-selection layer. |
+| Live sandbox HTTP | BLOCKED | `GROUPON_API_KEY` was unavailable to the audit shell. No authenticated calls were made. The earlier browser smoke test observed 91 events for team date 10 November and some schedules. It does not validate each endpoint or the new history request. Checked the previously fetched public contract and offline request tests for pagination, timestamps, timeouts and matching. One failed text feed leaves a cautious recommendation. |
+| Model adapter and advisory UI | FAIL | Mocked valid structured requests/responses, separate contradictory findings, source IDs, exact quote checks, fabricated quotes, malformed JSON, missing fields and truncated responses. Mocked 402, 429, 503 and timeout all returned deterministic fallback. Also reproduced an accepted Unicode surrogate followed by a Streamlit exception. Real paid inference is unverified. Model findings do not set the deterministic action, compute displayed GBP amounts, or enter routing. |
+| Merchant marks | FAIL | Mocked read, save, overwrite, delete, empty reason, merchant 404 and write 503. AppTest verified a successful save and deletion while the recommendation stayed the same. Invalid nonempty rep IDs are sent unchanged. Actual mark persistence and authenticated refresh are unverified. Marks do not enter routing. |
+| Routing with supplied inputs | PASS | Original and patched full today/carried JSON, stdout and stderr matched byte for byte with effective flag off. Input, config and priors match the original Git import. In tests, overrides win, only the exact deal within its merchant can be suppressed, callbacks are protected from the new policy, and malformed, missing, stale, future and merchant-wide entries are ignored. Audit includes source, reason, task, IDs, evaluation date and totals. Flag-off restores the baseline at the next run. Tier below records the inherited missing-column failure. |
+| Holdout and evaluator | PASS | Synthetic output recreated byte-for-byte with the default seed. Tests cover stable sorted-roster assignment, repeated merchant and sold-out records, cohort separation, incomplete windows, missing GP, weighted difference, recovery thresholds and a header-only empty export. Synthetic output showed 4 treatment and 1 holdout merchants, 3 suppressions, 36 estimated gross minutes avoided at 12 minutes/task, £115 vs £100 GP and two reportable recoveries. An illustrative 11 January start gives 10 February window close and 13 February earliest readout with 3 processing days. No real export or impact estimate was validated. |
+
+**Captured cohort replay.** Reran all 91 event IDs and timestamps from the 10 November team day with the supplied data pack, using the app's since filter and snapshot contact flags. With history unavailable the offline baseline matched the previously observed live counts. With history available, 29 reviews became calls to verify capacity. The after column is offline, and does not verify live contact permissions or the schedule/history endpoints.
+
+| Action | Baseline | With prior cap history |
+|---|---:|---:|
+| Review | 67 | 38 |
+| Check automation | 24 | 24 |
+| Verify capacity by phone | 0 | 29 |
+
+## 4. Critical findings
+
+| Severity | Reproduction and impact | Proposed disposition |
+|---|---|---|
+| **BLOCKER — submission package** | At the audited commit, `git ls-files` shows the README, decision log and Hana’s review brief. The brief is a technical review, and the requested Greg change request, Dan lines and cut list are absent. No reviewable AI session exports were found. Desk fields and required links were not verified. | Assemble and verify the required items against Desk before submitting. Use the QA caveats and documented stakeholder status. |
+| **HIGH — refusal misread as willingness** | Run `soldouts.cli detect` on a recent exact-deal rep note with a valid rep ID and text `Please raise the cap? No, keep it at 10.` The detector returns `call` with a `restock_willingness` signal. This was reproduced on synthetic, explicitly linked text. The documented live notes/replies generally lack a deal ID, which limits exposure. | Add a narrow guard for questions or explicit reversals and return review for ambiguity. Verify prior legitimate exact-deal calls and the captured replay. Until resolved, verify intent against the quote before acting. [evidence.py](../src/soldouts/evidence.py#L77) |
+| **MEDIUM — malformed model text can crash analysis** | Mock a completed valid-quote JSON response with an escaped unpaired `\\ud800` in `rationale`. The adapter accepts the response, and clicking Analyse in AppTest produces an encoding exception. No live model call was made. | Reject strings that cannot be UTF-8 encoded at validation time and use existing fallback. If time is short, keep the optional model mode disabled and disclose the gap. [llm.py](../src/soldouts/llm.py#L76) |
+| **MEDIUM — invalid rep attribution** | Call `Sandbox.set_mark("M1", "test", "qa", "not-a-rep")` using the mock transport. The outgoing payload contains that rep ID. The client validates presence but does not validate membership in the rep list. Server-side acceptance was not tested. | Before real mark testing, use a known sandbox rep ID. A small future fix can validate against the rep roster or use an explicit rep selection. [sandbox.py](../src/soldouts/sandbox.py#L100) |
+| **MEDIUM — inherited malformed routing row aborts run** | Remove the `callback_promised` key from an otherwise eligible task and call `build_plan`. Both flag positions raise `KeyError`. This was reproduced locally with no config edits or activation. A present but nonstandard callback value is kept by the new filter. | Confirm the feed contract and validate required headers upstream before a pilot. Treat a missing field as an invalid input and report the failed run. Keep original legacy filters intact. [plan.py](../routing/routing/plan.py#L67) |
+| **LOW — wrong CSV schema passes on zero rows** | Write only `wrong\n` to a detector CSV and run `detect`. It exits successfully with `manual_review`. Adding a data row makes it correctly fail. | Check required headers even for a zero-row file. [cli.py](../src/soldouts/cli.py#L57) |
+
+## 5. Manual tests required
+
+1. **Fresh authenticated read-only smoke.** Supply the key through the process environment using your existing secure setup. Start the README app, click **Refresh sandbox**, and check the team date and rep filter. Through the sandbox client or an approved read-only tool, check `GET /me`, `/soldouts/today`, `/merchants`, `/merchants/{id}`, `/reps`, and merchant-filtered `/notes`, `/alert-replies`, `/reviews`, `/refunds`, `/automation/schedules`, `/automation/alerts` and `/soldouts`. Use one merchant with known activity and a small page limit for one paginated endpoint. Stop after two pages in the smoke, pace requests below 10 per second, and record statuses, keys and row counts only. Expected: HTTP 200, stable date, matching IDs, correct fields and either a null cursor or a distinct cursor that advances. The historical sold-out response must expose the prior CAP fields in the documented shape.
+2. **Verify live cap recommendations.** On the captured team day use Fig Grill Bradford SO-D1-002, Skyline SO-D1-003 and Amber SO-D1-022 if still available. Otherwise pick equivalents from the current team day. Compare joined source dates and contact permission directly. For the captured snapshot the expected outcomes are a verification call (55 → 82 on 21 October), automation check and manual review, respectively. Changed source data may alter the action. Check that recent evidence, unavailable feeds and contact restrictions take precedence. Positive GBP alone cannot qualify any case.
+3. **Reversible mark test, after separate write approval.** Choose a disposable merchant whose existing mark is absent, or record the exact original value and establish restoration first. Enter `qa_check`, a short QA reason and your verified rep ID. Save and refresh the sandbox, confirm the saved values, overwrite the reason, refresh again and confirm the update. Delete the test mark or restore the original and refresh to confirm cleanup. Expect an unchanged recommendation and no routing effect. Keep unapproved writes out of the smoke.
+4. **One small paid model smoke, after separate approval and the Unicode fix.** Use a controlled sample with these three representative records. `QA-N1`, deal note, “Please raise the cap to 20.” should support restock willingness. `QA-N2`, later same-deal note, “We are at capacity and cannot take more bookings.” should support refusal or review alongside the first. `QA-R1`, merchant-only alert reply, “The link keeps timing out.” should support an automation problem scoped to merchant review. Use synthetic records with the adapter when authorised, or inspect equivalent existing records without uploading or editing sandbox data. Record whether the response ends normally, quotes match the precise IDs and substrings, conflict stays visible, and existing action and GBP figures remain intact. Do not count a mock as this smoke.
+5. **Pilot export rehearsal with Ops and Sales.** Run the evaluator against one authorised staging export once available. Reconcile the frozen assignments to eligible sold-outs, one suppression and one callback/recovery case. Verify trustworthy suppression timestamps, completed-window flags and coverage across both arms. Confirm who records Sales incidents and how routing logs and the CSV version are archived beyond 14 days. Expect technical counts to reconcile and missing reports to stay unknown. No automatic switch action should occur.
+
+## 6. Security and governance
+
+- The effective default suppression switch is OFF and the shipped CSV is empty. The flag-on tests used temporary config/data only. There was no deployment, credential retrieval, authenticated request, sandbox write or paid call during the audit.
+- Tracked-file scans for common credential signatures found no matches. This is a limited scan. `.env`, key files and local archives are ignored. Start the app with the key in the process environment and avoid printing it or capturing it in a terminal recording or session export.
+- Greg agreed to review a January proposal. Deployment and activation approval are outstanding. Hana agreed to monitor technical runs in a future pilot. Her code review and Sales recovery ownership are still pending. No documented Renee validation was found.
+- A structured `rep_confirmed:Rxx` source is syntax, not proof of rep ownership or confirmation. Routing logs can count suppressions and protected input callbacks. They cannot prove a real callback occurred or identify an unplanned Sales recovery. Retain logs and list versions separately. Configuration rollback restores subsequent runs and requires reconciliation for already omitted tasks.
+- Priya’s £11.08 is observational. The pilot’s gross time illustration and the synthetic evaluator output do not establish net savings, experiment results or causal GP. The holdout ratio and stop rules remain proposed.
+
+## 7. Submission checklist
+
+- [x] Local startup, commands and fixture status in the [README](../README.md).
+- [x] Decision log and separate milestone commits. [DECISIONS](../DECISIONS.md) · [Hana review brief](hana-routing-review.md)
+- [ ] Add one-page January change request for Greg, three concise lines for Dan, and a short cut list. Carry forward staging dependencies, safe rollback and readout timing.
+- [ ] Export the relevant AI sessions. Review exports for secrets, confirm links/files open, and state which live model and mark checks remain unverified. The README has model instructions; an export was not present.
+- [ ] Open the Desk Submit panel under the candidate’s account. Verify the exact required items and link permissions. If the panel accepts local execution, give the documented startup and explain that the supplied ZIP is needed for the offline demo. No public URL was verified.
+- [ ] Resolve or explicitly disclose the adverse-input defects and finish the permitted read-only smoke. Mark/LLM integration checks require their separate approvals.
+
+## 8. Recommended cuts
+
+Defer public hosting, dashboards, broad NLP rewrites, richer confidence intervals and further historical association analysis. If approval or time runs short, keep the optional LLM mode disabled and document that the gateway was mocked. Preserve the routing freeze and avoid adding automatic recovery or activation.
+
+## 9. Final recommendation
+
+Complete the submission materials and verify the Desk requirements first. The smallest code correction with the clearest user benefit is a narrow guard for ambiguous or reversed restock intent with a regression test. Keep the optional LLM disabled until malformed text falls back safely. Run the authenticated read-only smoke if credentials become available, and disclose every unverified integration instead of holding the offline submission for a real experiment. A January pilot still requires written approval, confirmation of the routing input contract, and an agreed Sales reporting owner.
+
+This audit produced this report only. Application and routing source were left untouched.
