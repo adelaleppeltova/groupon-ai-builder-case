@@ -4,7 +4,19 @@ Audit date: 17 November 2026. Commit audited: `747636c`.
 
 **Corrective verification after this audit.** Commit `6174eb3` resolved the reproduced refusal error and malformed model response crash. Before the fix the synthetic refusal returned `call`. It now returns `no_call` for an exact-deal record, and competing current signals remain subject to review. Mocked invalid Unicode now leaves the deterministic UI available with a fixed fallback message. All 36 project tests, 17 patched routing tests and 11 separately extracted original tests passed. Loopback startup returned `ok`. The 91 captured actions matched the original post-cap-history replay event for event. Routing files are unchanged and the flag is off.
 
-The [Greg request](GREG_CHANGE_REQUEST.md), [Dan lines](DAN_THREE_LINES.md), [cut list](../README.md#submission-and-known-limits) and [export checklist](AI_SESSION_EXPORT_CHECKLIST.md) are now prepared. Manual exports and Desk verification remain submission tasks. The authenticated history and mark workflow, paid model smoke and future pilot export remain unverified. The sections below preserve the findings at the audited commit.
+The [Greg request](GREG_CHANGE_REQUEST.md), [Dan lines](DAN_THREE_LINES.md), [cut list](../README.md#submission-and-known-limits) and [export checklist](AI_SESSION_EXPORT_CHECKLIST.md) are now prepared. Manual exports and Desk verification remain submission tasks. Live cap-history checks and the future pilot export remain unverified. See the manual verification update below for live integration results.
+
+## Manual verification update — 17 November 2026
+
+| Area | Verified live | Remaining limits |
+|---|---|---|
+| Sandbox reads | Reads worked in the Streamlit app. | Endpoint-by-endpoint checks and specific live cap-history results were not established by this smoke. |
+| Merchant marks | Save, read and delete worked in the sandbox. | The invalid-rep-ID finding and error paths were exercised with mocks. This smoke did not establish server-side rep ID validation. |
+| Gateway and adapter | Real inference worked through the Groupon gateway with `claude-haiku-5-5`. The adapter accepted a `capacity_refusal` finding for `DAR-000059` and validated one exact quotation. The deterministic action remained `manual_review`. | Two earlier successful gateway responses failed adapter validation and fell back safely. Rendering an accepted live response in Streamlit and broader accuracy remain unverified. |
+| Gateway spend | The accepted inference cost **$0.0002**. The total observed spend across all three calls was **$0.0005**. | These figures are from the manual smoke. |
+
+The automated suites use mocks for API and gateway response handling, malformed model text, fabricated citations and fallback rendering. The live results above are from the candidate’s manual verification. The audit sections below describe the originally audited commit, including historical test failures and missing artefacts at that point.
+
 
 ## 1. Executive summary
 
@@ -59,7 +71,9 @@ Project tests cover HTTP and model contracts through mocks. They cannot verify a
 | **MEDIUM — inherited malformed routing row aborts run** | Remove the `callback_promised` key from an otherwise eligible task and call `build_plan`. Both flag positions raise `KeyError`. This was reproduced locally with no config edits or activation. A present but nonstandard callback value is kept by the new filter. | Confirm the feed contract and validate required headers upstream before a pilot. Treat a missing field as an invalid input and report the failed run. Keep original legacy filters intact. [plan.py](../routing/routing/plan.py#L67) |
 | **LOW — wrong CSV schema passes on zero rows** | Write only `wrong\n` to a detector CSV and run `detect`. It exits successfully with `manual_review`. Adding a data row makes it correctly fail. | Check required headers even for a zero-row file. [cli.py](../src/soldouts/cli.py#L57) |
 
-## 5. Manual tests required
+## 5. Manual test procedures from the original audit
+
+The manual update above records completion of the basic sandbox read, mark save/read/delete and gateway checks. Targeted history verification, rendering a real accepted result in Streamlit, broader model validation and the pilot export rehearsal remain open.
 
 1. **Fresh authenticated read-only smoke.** Supply the key through the process environment using your existing secure setup. Start the README app, click **Refresh sandbox**, and check the team date and rep filter. Through the sandbox client or an approved read-only tool, check `GET /me`, `/soldouts/today`, `/merchants`, `/merchants/{id}`, `/reps`, and merchant-filtered `/notes`, `/alert-replies`, `/reviews`, `/refunds`, `/automation/schedules`, `/automation/alerts` and `/soldouts`. Use one merchant with known activity and a small page limit for one paginated endpoint. Stop after two pages in the smoke, pace requests below 10 per second, and record statuses, keys and row counts only. Expected: HTTP 200, stable date, matching IDs, correct fields and either a null cursor or a distinct cursor that advances. The historical sold-out response must expose the prior CAP fields in the documented shape.
 2. **Verify live cap recommendations.** On the captured team day use Fig Grill Bradford SO-D1-002, Skyline SO-D1-003 and Amber SO-D1-022 if still available. Otherwise pick equivalents from the current team day. Compare joined source dates and contact permission directly. For the captured snapshot the expected outcomes are a verification call (55 → 82 on 21 October), automation check and manual review, respectively. Changed source data may alter the action. Check that recent evidence, unavailable feeds and contact restrictions take precedence. Positive GBP alone cannot qualify any case.
