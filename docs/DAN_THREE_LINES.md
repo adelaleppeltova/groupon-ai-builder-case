@@ -1,3 +1,3 @@
-Built a mobile-friendly rep tool, tested live sandbox reads, merchant marks and grounded AI interpretation. Routing patch tested (OFF); holdout evaluator ready.
-Illustrative gross rep-time savings: £50–£150 per 100 eligible tasks, not net GP. First actual 30-day readout: earliest 33 days after an approved pilot start.
-Cut public hosting, deployment and broad AI validation. Hana reviewed the diff. January rollout still needs Greg's written approval and a named Sales owner.
+Built the rep tool, verified live sandbox reads, marks and one grounded AI response, and tested routing OFF and the holdout evaluator.
+Illustrative annual incremental GP sensitivity is £20k–£80k, base ~£44k, before rep time. First measured cohort readout is approved start + 30 days + ~3 processing days.
+Cut hosting, deployment and broad AI validation. Dan owns interim Sales monitoring; activation approval, export ownership and production stderr capture remain outstanding.

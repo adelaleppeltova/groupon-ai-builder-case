@@ -100,8 +100,34 @@ cd routing
 python3 -c 'from routing.plan import load_config; value = load_config()["suppress_soldout_tasks"]; print(value); assert value is False'
 ```
 
-Hana watches technical run logs only. She has not verified that the production runner captures stderr and will not own daily log exports. Greg must assign an export owner and resolve capture and retention before a pilot.
+Hana watches technical run logs only. She has not verified that the production runner captures stderr and will not own daily log exports. Greg will identify a prospective daily audit export owner at the 15:00 January review. Ownership remains unconfirmed, and capture and retention need resolution before a pilot.
 
+
+## Illustrative annual incremental GP sensitivity
+
+At 600 sold-out tasks per week × 52 weeks, the annual volume assumption is **31,200 tasks**. “Incremental interventions” below means the assumed share of that volume generating an additional intervention with the stated GP contribution.
+
+| Scenario | Assumed incremental interventions | Assumed GP per intervention | Annual incremental GP sensitivity |
+| --- | ---: | ---: | ---: |
+| Low | 15% | £4 | 31,200 × 15% × £4 = **£18,720** |
+| Base | 20% | £7 | 31,200 × 20% × £7 = **£43,680** |
+| High | 25% | £10 | 31,200 × 25% × £10 = **£78,000** |
+
+Presentation shorthand is **£20k–£80k/year, base ~£44k**. These inputs are assumptions. This sensitivity is neither an observed result nor a causal estimate or confidence interval. Rep time has not been deducted, so it does not represent net benefit after rep time. It also does not establish avoided recovery cost. Priya’s historical **£11.08 is observational**, and automation confounding is under private review. The earliest measured pilot result is an approved start plus 30 days and approximately three processing days, subject to data availability. The calculation here is a documentation sensitivity and does not change the application’s per-call financial model.
+
+## Qualitative rep feedback — Renee Walsh
+
+Renee supplied the following merchant-level judgement. She did not review exact deal/date pairs or specific LLM responses. The comparison uses each merchant’s latest supplied historical sold-out at the start of its UK date, with no later evidence. None of these merchants appears in the captured 91-event batch.
+
+| Merchant | Renee’s feedback | Provisional deterministic replay |
+| --- | --- | --- |
+| M10002 · The Linen Room | Leave | `manual_review` — 21 October, SO-043082 |
+| M10766 · Fern Hair & Beauty | Leave | `manual_review` — 10 October, SO-043713 |
+| M10843 · Juniper Lash Studio | Ring | Conditional `call` — 16 October, SO-043796, assuming contact clearance |
+| M12925 · Lotus Hair & Beauty Leeds | Auto top-up ON, no call | `check_automation` — 12 October, SO-045468 |
+| M12846 · Cedar Wellness Rooms Sheffield | Ring, broken link to Ops | `manual_review` — 26 October, SO-045404 |
+
+Juniper’s replay needs verified contact clearance. The unknown historical contact state gives review. Lotus’s schedule supports an automation check, while a successful top-up still needs confirmation. Cedar’s merchant call and broken-link Ops follow-up are separate actions. The two “leave” judgements apply for now and do not authorise routing suppression. This is qualitative merchant-level feedback, not demonstrated AI classification accuracy or five event-level matches.
 
 ## January pilot measurement
 
@@ -130,9 +156,9 @@ The evaluator requires that original assignment CSV and a pilot export with one 
 
 The comparison uses original assignment regardless of whether a task was suppressed. It averages complete, available sold-out GP within each merchant and then gives each reporting merchant equal weight. Missing outcomes and merchants without events are counted and excluded from the mean. The resulting available-case difference can be biased if missingness or event coverage differs by arm. The script omits uncertainty intervals rather than treating repeated sold-outs as independent. A future causal readout needs verified randomisation, enough merchants, comparable outcome coverage and a review of contamination. Holdout suppression is flagged. Rep time spent is observed where recorded. With `--minutes-per-task`, estimated gross time avoided equals confirmed suppressions times the assumed minutes. The export does not observe the minutes that would otherwise have been spent.
 
-The first cohort’s earliest readout is **start + 30 days + processing allowance**. `--processing-days` defaults to an illustrative three days. With the synthetic 11 January 2027 start, the first cohort’s window ends 10 February and could be read out on 13 February if the data are available. Later cohorts mature separately. Refunds can arrive after 30 days. Priya’s reported £11.08 is a historical association and stays out of the calculations. The illustrative gross time range is £50–£150 per 100 eligible tasks if 10–30 are safely avoided at 12 minutes and £25/hour. A provisional net GP range is unavailable without assumptions about foregone GP and recovery.
+The first cohort’s earliest readout is **start + 30 days + processing allowance**. `--processing-days` defaults to an illustrative three days. With the synthetic 11 January 2027 start, the first cohort’s window ends 10 February and could be read out on 13 February if the data are available. Later cohorts mature separately. Refunds can arrive after 30 days. Priya’s reported £11.08 is a historical association and stays out of the calculations. The illustrative gross time range is £50–£150 per 100 eligible tasks if 10–30 are safely avoided at 12 minutes and £25/hour. The annual sensitivity above uses explicit assumptions. Net benefit after rep time and recovery remains unmeasured.
 
-The proposed stop thresholds are one attributable missed promised callback, or at least two suppressed sold-outs requiring unplanned rep recovery within seven days among the first 20 actual suppressions. Incomplete timing, a timestamp tie across position 20, or incomplete incident coverage can make the status indeterminate. Hana monitors technical routing logs only. Greg must assign an owner to preserve task-level events beyond their 14-day retention, and production stderr capture remains unverified. Those logs can count removals and input-flagged callbacks. Confirming actual missed calls and recovery requires external follow-up, with a Sales owner still to be agreed. The evaluator reports status for review. Operators retain control of stopping or activating the pilot.
+The proposed stop thresholds are one attributable missed promised callback, or at least two suppressed sold-outs requiring unplanned rep recovery within seven days among the first 20 actual suppressions. Incomplete timing, a timestamp tie across position 20, or incomplete incident coverage can make the status indeterminate. Hana monitors technical routing logs only. The daily-export owner remains unconfirmed; Greg will identify a prospective owner at the 15:00 January review to preserve task-level events beyond their 14-day retention, and production stderr capture remains unverified. Those logs can count removals and input-flagged callbacks. Confirming actual missed calls and recovery requires external follow-up, with Dan explicitly accepting interim ownership of pilot exception and recovery monitoring. Dan will name a team lead once the cohort is agreed. The evaluator reports status for review. Operators retain control of stopping or activating the pilot.
 
 ## Submission and known limits
 

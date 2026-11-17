@@ -14,7 +14,13 @@ The [Greg request](GREG_CHANGE_REQUEST.md), [Dan lines](DAN_THREE_LINES.md), [cu
 
 Greg reviewed the January request and confirmed the 15:00 review that day as a January item. He clarified that Ops owns the switch and rollback and asked whether Hana had agreed to monitor and received the diff. Hana has now received the diff and review brief and supplied technical feedback, confirming the small, off-by-default approach and flag-off baseline comparison. She confirmed last-merged override precedence and requested the explicit README rollback check, now documented.
 
-Hana watches technical run logs only. Production stderr capture is unverified, and she will not own daily exports. Greg must assign an export owner. Sales recovery reporting still needs an agreed owner. Separate written deployment and activation approval remains outstanding. The pilot has not started.
+Hana watches technical run logs only. Production stderr capture is unverified, and she will not own daily exports. Daily export ownership remains unconfirmed; Greg will identify a prospective owner at the 15:00 January review. Dan now owns interim Sales exception/recovery monitoring and will name a team lead once the cohort is agreed. Separate written deployment and activation approval remains outstanding. The pilot has not started.
+
+## Final submission clarification
+
+Dan explicitly accepted interim Sales ownership of pilot exception and recovery monitoring and will name a team lead once the cohort is agreed. Greg confirmed that Ops owns switch operation and rollback. Hana reviewed the diff and agreed only to monitor technical run logs. Greg will identify a prospective daily audit export owner at the 15:00 January review, with ownership still unconfirmed. Production stderr capture remains unverified. There is no written activation approval, and no pilot has started.
+
+The README records Renee’s merchant-level feedback and a provisional historical replay. It does not establish five event-level matches or LLM classification accuracy. The README’s £18,720 / £43,680 / £78,000 annual sensitivity uses explicit volume, intervention and GP assumptions. It is not measured impact or net benefit after rep time. Priya’s £11.08 is observational, with automation confounding under private review. The original audit findings below remain historical evidence.
 
 ## Manual verification update — 17 November 2026
 
@@ -97,7 +103,7 @@ The manual update above records completion of the basic sandbox read, mark save/
 
 - The effective default suppression switch is OFF and the shipped CSV is empty. The flag-on tests used temporary config/data only. There was no deployment, credential retrieval, authenticated request, sandbox write or paid call during the audit.
 - Tracked-file scans for common credential signatures found no matches. This is a limited scan. `.env`, key files and local archives are ignored. Start the app with the key in the process environment and avoid printing it or capturing it in a terminal recording or session export.
-- Greg reviewed the request and confirmed its January review item. Separate deployment and activation approval remains outstanding. Hana received the diff and supplied feedback. Ops owns switch operation and rollback. Hana monitors technical logs only. Production stderr capture is unverified, Greg must assign daily-export ownership, and Sales recovery ownership remains unconfirmed. No documented Renee validation was found.
+- Greg reviewed the request and confirmed its January review item. Separate deployment and activation approval remains outstanding. Hana received the diff and supplied feedback. Ops owns switch operation and rollback. Hana monitors technical logs only. Production stderr capture and daily-export ownership remain unconfirmed. Greg will identify a prospective export owner at the 15:00 January review. Dan owns interim Sales exception/recovery monitoring and will name a team lead once the cohort is agreed. Renee’s qualitative merchant feedback is recorded in the final submission clarification and README.
 - A structured `rep_confirmed:Rxx` source is syntax, not proof of rep ownership or confirmation. Routing logs can count suppressions and protected input callbacks. They cannot prove a real callback occurred or identify an unplanned Sales recovery. Retain logs and list versions separately. Configuration rollback restores subsequent runs and requires reconciliation for already omitted tasks.
 - Priya’s £11.08 is observational. The pilot’s gross time illustration and the synthetic evaluator output do not establish net savings, experiment results or causal GP. The holdout ratio and stop rules remain proposed.
 
@@ -116,4 +122,4 @@ Defer public hosting, dashboards, broad NLP rewrites, richer confidence interval
 
 ## 9. Final recommendation
 
-Finish the manual AI session exports and verify the Desk requirements and reviewer access before submitting. The two reproduced application defects are resolved. The basic live integration smoke has been recorded, and accepted-response rendering in Streamlit, broader model accuracy, and targeted live history checks remain unverified. A January pilot still requires Greg’s written approval, confirmation of the routing input contract and an agreed Sales reporting owner.
+Finish the manual AI session exports and verify the Desk requirements and reviewer access before submitting. The two reproduced application defects are resolved. The basic live integration smoke has been recorded, and accepted-response rendering in Streamlit, broader model accuracy, and targeted live history checks remain unverified. A January pilot still requires Greg’s written approval, confirmation of the routing input contract, production stderr capture and a confirmed daily-export owner. Dan owns interim Sales monitoring pending the cohort team-lead handoff.

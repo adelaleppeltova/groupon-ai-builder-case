@@ -4,7 +4,7 @@ Greg reviewed the change request and confirmed the 15:00 review on 17 November 2
 
 Hana received the routing diff and review brief and responded with technical feedback. She confirmed the small, off-by-default approach and the flag-off comparison with original routing. She confirmed that the environment override is merged last and takes precedence. The current override contains `priors.restock`, with no `routing` section. She requested an explicit rollback check of both the base config and the effective override. The README now records that procedure.
 
-Hana watches technical run logs only. She has not verified production stderr capture and will not own daily exports. Greg must assign that owner.
+Hana watches technical run logs only. She has not verified production stderr capture and will not own daily exports. Greg will identify a prospective daily audit export owner at the 15:00 January review. Ownership remains unconfirmed.
 
 The Git patch starts at the verbatim routing import `867d783`. Run `git diff 867d783 HEAD -- routing README.md docs/hana-routing-review.md` to see it. The planner adds the eligibility check and run audit in `routing/routing/plan.py`. The CSV validation lives in `routing/routing/suppressions.py`. The new tests are in `routing/tests/test_pilot_suppressions.py`. The routing README documents config, logs and rollback.
 
@@ -17,12 +17,12 @@ Verification covered 17 routing tests, including the 11 original tests, and 37 p
 **Monitoring and proposed stop rules**
 
 - One missed promised callback attributable to the new mechanism triggers an immediate stop. The audit can check the count of input-flagged callbacks removed by this planner and trace matched callbacks by task ID. The morning run audit cannot confirm that a rep actually called or that every promised callback was marked correctly upstream.
-- At least two cases requiring unplanned rep recovery among the first 20 suppressed sold-outs, assessed within seven days, trigger a stop and investigation. Sales needs to confirm and record recovery cases against suppressed task IDs. Dan has yet to confirm the Sales owner.
+- At least two cases requiring unplanned rep recovery among the first 20 suppressed sold-outs, assessed within seven days, trigger a stop and investigation. Sales needs to confirm and record recovery cases against suppressed task IDs. Dan explicitly accepted interim Sales ownership of pilot exception and recovery monitoring. He will name a team lead once the cohort is agreed.
 - Hana checks technical run logs only. A daily-export owner assigned by Greg must preserve daily audit events and their source list version outside the 14-day routing log retention window. The proposal has no automatic stop or activation.
 
 **Outstanding operational questions**
 
-1. Greg and Ops need to confirm whether the production runner captures stderr and links each run to the exact CSV version. Greg must name the daily-export owner and confirm storage. Hana has not verified capture and will not own exports.
+1. Greg and Ops need to confirm whether the production runner captures stderr and links each run to the exact CSV version. Greg will identify a prospective daily-export owner at the 15:00 January review. Confirm that owner and storage before a pilot. Hana has not verified capture and will not own exports.
 2. Can Ops and Sales support the proposed reason codes, rep ID format and inclusive seven-day window? Who will verify the owning rep’s confirmation, publish the file and handle revocations?
 3. Is the callback flag complete in the overnight input? Who reconciles reported callback misses with the upstream records and the existing legacy filters?
 4. Ops owns setting the effective flag back to `false`. Confirm the operational handoff for reconciliation with Sales. Check both the base config and last-merged environment override during rollback.
