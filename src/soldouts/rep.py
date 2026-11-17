@@ -118,7 +118,8 @@ def assess_event(event, tables, *, max_age_days=90, live=False, incomplete=False
     context = [signal for signal in signals if not signal["deal_id"]]
     schedule_fields = ("schedule_id", "merchant_id", "deal_id", "start_date", "end_date")
     schedules = list(active_schedules(
-        ({k: string(row.get(k)) for k in schedule_fields} for row in tables.get("schedules", ())),
+        ({k: string(row.get(k)) for k in schedule_fields} for row in tables.get("schedules", ())
+         if "end_date" in row and (row["end_date"] is None or isinstance(row["end_date"], str))),
         event.merchant_id, event.deal_id, cutoff,
     ))
     action, reason = recommend(deal, schedules)
@@ -131,11 +132,13 @@ def assess_event(event, tables, *, max_age_days=90, live=False, incomplete=False
     elif action == "manual_review" and any(not s["stale"] for s in context):
         reason += " Review the merchant context for questions to verify on this deal."
 
-    history = (
-        {k: str(r.get(k, "")) for k in ("month", "gp_gbp", "vouchers_sold")}
-        for r in tables.get("history", ()) if r.get("merchant_id") == event.merchant_id
-    )
-    baseline = merchant_history(history, cutoff)
-    financial = forecast(baseline["net_gp_per_voucher_gbp"])
+    baseline = financial = None
+    if action == "call":
+        history = (
+            {k: str(r.get(k, "")) for k in ("month", "gp_gbp", "vouchers_sold")}
+            for r in tables.get("history", ()) if r.get("merchant_id") == event.merchant_id
+        )
+        baseline = merchant_history(history, cutoff)
+        financial = forecast(baseline["net_gp_per_voucher_gbp"])
     return {"action": action, "reason": reason, "deal_evidence": deal, "merchant_context": context,
             "schedules": schedules, "finance": financial, "baseline": baseline}

@@ -225,7 +225,8 @@ def main():
     st.caption(f"Merchant {event.merchant_id} · Deal {event.deal_id} · {event.sold_out_at or 'Time unavailable'}")
     st.subheader(ACTION_LABELS[report["action"]])
     st.write(report["reason"])
-    show_finance(report)
+    if report["action"] == "call":
+        show_finance(report)
     st.caption("Quoted text is verifiable at its source. Check whether the reported conditions still apply.")
     show_evidence("Deal evidence", report["deal_evidence"], report["schedules"])
     show_evidence("Merchant context", report["merchant_context"])

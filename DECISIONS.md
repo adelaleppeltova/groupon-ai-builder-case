@@ -9,6 +9,6 @@
 ## Phase 2 decisions
 
 - The rep app uses separate merchant and deal evidence panels. Deal advice comes from the existing deterministic rules, using deal evidence only, and applies the live contact restriction when present. The Phase 1 CLI retains its existing behaviour.
-- Figures show the hypothetical economics of a cap raise wherever the merchant has usable voucher history. The chosen action can still be to review, check automation or follow up with operations.
+- Show the hypothetical economics of a cap raise only for a recommendation to call with usable voucher history.
 - Use server-side bearer authentication from the process environment. Cache reads inside each live browser session and refresh on request. Marks belong to the merchant and the sandbox key that created them.
 - Model findings are advisory and shown with the source scope. Requests are opt-in, bounded and validated. Keep the rules and finance usable through gateway failures.

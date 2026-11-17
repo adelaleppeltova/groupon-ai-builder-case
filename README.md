@@ -17,15 +17,15 @@ Start the app with one command.
 PYTHONPATH=src .venv/bin/python -m streamlit run src/soldouts/rep_app.py --server.address 127.0.0.1 --browser.gatherUsageStats false
 ```
 
-With no `GROUPON_API_KEY`, the app shows historical examples from `data-pack.zip`. Use `GROUPON_DATA_PACK` for a different ZIP path or extracted CSV directory. Select `SO-043678` for a deal with quoted evidence, merchant context and illustrative GBP values. Select `SO-000006` for a schedule that needs verification. Demo mark edits last for the browser session.
+With no `GROUPON_API_KEY`, the app shows historical examples from `data-pack.zip`. Use `GROUPON_DATA_PACK` for a different ZIP path or extracted CSV directory. Select `SO-043678` for a deal with quoted evidence and merchant context for an operations follow-up. Select `SO-000006` for a schedule that needs verification. Demo mark edits last for the browser session.
 
 For live mode, set `GROUPON_API_KEY` in the process environment before startup. Use the team date shown in the app and **Refresh sandbox** to fetch a new snapshot. The signed-in key reads its own merchant marks. Saving overwrites the existing mark. Removal deletes the mark for that key. Enter your own rep ID when recording a mark. Mark edits affect the sandbox merchant record only.
 
-The published [sandbox OpenAPI schema](https://desk-production-6adc.up.railway.app/api/sandbox/v1/openapi.json) specifies the paginated sold-out list, bearer authentication and merchant mark operations. The schedule and monthly history endpoints describe generic rows. The app maps them using the corresponding data pack column names. Authenticated responses, mark mutations and paid inference were verified with mocks during Phase 2.
+The published [sandbox OpenAPI schema](https://desk-production-6adc.up.railway.app/api/sandbox/v1/openapi.json) specifies the paginated sold-out list, bearer authentication and merchant mark operations. The schedule and monthly history endpoints describe generic rows. The app maps them using the corresponding data pack column names. Unusable history yields no estimate, and incomplete schedule rows are ignored. The app’s authenticated request handling, mark operations and LLM response handling were exercised with mocks. The public schema was fetched from the sandbox. No authenticated requests, mark mutations or real model inference were performed.
 
 The app uses the sold-out timestamp as the evidence cutoff. `GROUPON_EVIDENCE_DAYS` controls freshness, with 90 days as an MVP default. Only deal-linked text and matching schedules can support a deal action. Merchant context is shown in its own panel for the rep to verify. Live contact restrictions take precedence. A missing evidence feed can prompt manual review, and a missing timestamp prevents evidence assessment.
 
-The app shows potential GBP value where prior voucher history is usable. The scenarios illustrate what pursuing a cap raise could be worth and still need Priya's review. They do not establish incremental profit.
+The app shows potential GBP value for call recommendations with usable prior voucher history. The scenarios illustrate what pursuing a cap raise could be worth and still need Priya's review. They do not establish incremental profit.
 
 ## Optional model interpretation
 

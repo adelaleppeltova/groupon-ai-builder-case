@@ -109,6 +109,26 @@ class RepTest(unittest.TestCase):
         self.assertEqual(len(tables["rep_notes"]), 1)
         self.assertEqual(assess_event(EVENT, tables, live=True, incomplete=True)["action"], "manual_review")
 
+    def test_call_economics_only_for_call_even_with_usable_history(self):
+        history = [{"merchant_id": "M1", "month": "2026-09", "gp_gbp": "100", "vouchers_sold": "10"}]
+        schedule = {"merchant_id": "M1", "deal_id": "D1", "schedule_id": "A1",
+                    "start_date": "2026-10-01", "end_date": None}
+        cases = [
+            ("call", {"rep_notes": [note("N1", "Please raise the cap.", deal_id="D1")]}),
+            ("ops_followup", {"rep_notes": [note("N1", "Double booked.", deal_id="D1")]}),
+            ("no_call", {"rep_notes": [note("N1", "At capacity.", deal_id="D1")]}),
+            ("check_automation", {"schedules": [schedule]}),
+            ("manual_review", {"schedules": [{k: v for k, v in schedule.items() if k != "end_date"}]}),
+        ]
+        for action, tables in cases:
+            with self.subTest(action=action):
+                report = assess_event(EVENT, {**tables, "history": history})
+                self.assertEqual(report["action"], action)
+                if action == "call":
+                    self.assertEqual(report["finance"]["status"], "scenario_estimate")
+                else:
+                    self.assertIsNone(report["finance"])
+
     def test_replay_uses_prior_text_and_merchant_context_cannot_override_deal(self):
         rows = [note("N1", "Please raise the cap.", deal_id="D1"),
                 note("N2", "At capacity."),
