@@ -1,0 +1,7 @@
+merchant_id,experiment_group,sold_out_id,eligibility_date,sold_out_date,window_complete,gp_30d_gbp,suppressed,suppressed_at,rep_minutes,refunds_30d_gbp,recovery_within_7d,missed_promised_callback
+SYN-A,holdout,SYN-01,2027-01-11,2027-01-11,1,100,0,,12,5,,
+SYN-B,treatment,SYN-02,2027-01-11,2027-01-11,1,80,1,2027-01-11T08:00:00Z,10,8,1,0
+SYN-B,treatment,SYN-03,2027-01-11,2027-01-12,1,120,0,,13,6,,
+SYN-C,treatment,SYN-04,2027-01-11,2027-01-12,1,130,1,2027-01-12T08:00:00Z,,4,1,0
+SYN-D,treatment,SYN-05,2027-01-11,2027-02-10,0,999,1,2027-02-10T08:00:00Z,,,,0
+SYN-E,treatment,SYN-06,2027-01-11,2027-01-13,1,,0,,,,,

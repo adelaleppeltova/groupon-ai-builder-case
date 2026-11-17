@@ -1,0 +1,6 @@
+merchant_id,experiment_group
+SYN-A,holdout
+SYN-B,treatment
+SYN-C,treatment
+SYN-D,treatment
+SYN-E,treatment

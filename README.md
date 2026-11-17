@@ -83,4 +83,35 @@ For a recommended call, the forecast multiplies added capacity by the assumed in
 
 These are illustrative scenarios, not estimates of treatment effect or confidence bounds. Finance does not drive the action, and the live recommendation would still need rep validation before use.
 
-The proposed January routing patch is ready for [Hana’s review](docs/hana-routing-review.md). Holdout and evaluation, observational study reproduction and the submission pack are later phases.
+The proposed January routing patch is ready for [Hana’s review](docs/hana-routing-review.md). The holdout tools below run offline. Observational study reproduction and submission preparation are outside this phase.
+
+## January pilot measurement
+
+**Experiment status: NOT STARTED.** The January proposal and its 20% merchant holdout still need Greg’s approval. These commands only read and write local CSVs.
+
+Run from the repo root. The assignment command creates a new file and refuses to overwrite it.
+
+```sh
+PYTHONPATH=src python3 -m soldouts.pilot assign tests/fixtures/synthetic_eligible_merchants.csv /tmp/groupon-demo-assignments.csv
+PYTHONPATH=src python3 -m soldouts.pilot evaluate tests/fixtures/synthetic_assignments.csv tests/fixtures/synthetic_outcomes.csv --start 2027-01-11 --as-of 2027-02-13 --minutes-per-task 12 --synthetic
+```
+
+The fixture dates and outcomes are synthetic. The roster requires `merchant_id,rep_confirmed`. Only rows confirmed by a rep (`1`) enter the draw. The CLI deduplicates merchants, sorts IDs, and samples the proposed holdout with seed 42 by default. `--seed` and `--holdout` are configurable. The target count is rounded to the nearest whole merchant with both arms represented. Freeze the approved roster and the output (`merchant_id,experiment_group`) before launch. Reuse that output for every sold-out. A changed roster can change assignments when sampled again.
+
+The evaluator requires that original assignment CSV and a pilot export with one row per eligible sold-out, including tasks that were never suppressed. The row's group must agree with the saved assignment. Duplicate event IDs and inconsistent groups fail validation. All headers are required. Leave unavailable values blank instead of entering zero.
+
+| Outcome CSV column | Meaning |
+| --- | --- |
+| `merchant_id`, `experiment_group`, `sold_out_id` | Original assigned arm (`treatment` or `holdout`) and unique sold-out ID |
+| `eligibility_date`, `sold_out_date` | ISO dates on the team clock. Eligibility must be on or before the sold-out. |
+| `window_complete`, `gp_30d_gbp` | Confirmed 30-day outcome coverage (`1`/ `0` / blank) and net GP in GBP for that fixed window. The script also checks that the 30 days have elapsed by `--as-of`. |
+| `suppressed`, `suppressed_at` | Actual new-mechanism suppression (`1` / `0` / blank) and ISO timestamp with UTC offset for ordering. |
+| `rep_minutes`, `refunds_30d_gbp` | Actual rep minutes spent and refunds within the same 30 days, if reported. Record a known zero explicitly. |
+| `recovery_within_7d` | Sales-confirmed unplanned rep recovery case within seven days after suppression. Use `1` for a confirmed case, `0` for a case reviewed with no incident, and blank for pending or unknown. |
+| `missed_promised_callback` | Confirmed missed promised callback attributable to the new mechanism (`1` / `0` / blank). |
+
+The comparison uses original assignment regardless of whether a task was suppressed. It averages complete, available sold-out GP within each merchant and then gives each reporting merchant equal weight. Missing outcomes and merchants without events are counted and excluded from the mean. The resulting available-case difference can be biased if missingness or event coverage differs by arm. The script omits uncertainty intervals rather than treating repeated sold-outs as independent. A future causal readout needs verified randomisation, enough merchants, comparable outcome coverage and a review of contamination. Holdout suppression is flagged. Rep time spent is observed where recorded. With `--minutes-per-task`, estimated gross time avoided equals confirmed suppressions times the assumed minutes. The export does not observe the minutes that would otherwise have been spent.
+
+The first cohort’s earliest readout is **start + 30 days + processing allowance**. `--processing-days` defaults to an illustrative three days. With the synthetic 11 January 2027 start, the first cohort’s window ends 10 February and could be read out on 13 February if the data are available. Later cohorts mature separately. Refunds can arrive after 30 days. Priya’s reported £11.08 is a historical association and stays out of the calculations. The illustrative gross time range is £50–£150 per 100 eligible tasks if 10–30 are safely avoided at 12 minutes and £25/hour. A provisional net GP range is unavailable without assumptions about foregone GP and recovery.
+
+The proposed stop thresholds are one attributable missed promised callback, or at least two suppressed sold-outs requiring unplanned rep recovery within seven days among the first 20 actual suppressions. Incomplete timing, a timestamp tie across position 20, or incomplete incident coverage can make the status indeterminate. Hana can monitor technical routing logs and preserve task-level events separately from their 14-day retention. Those logs can count removals and input-flagged callbacks. Confirming actual missed calls and recovery requires external follow-up, with a Sales owner still to be agreed. The evaluator reports status for review. Operators retain control of stopping or activating the pilot.
